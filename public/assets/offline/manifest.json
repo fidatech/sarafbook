@@ -1,0 +1,368 @@
+{
+  "https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js": {
+    "path": "assets/offline/56701b6c377f817a.js",
+    "resolved": "https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js",
+    "bytes": 2358,
+    "sha256": "de25c7adf49de31cc8d58caba281748c6e0e5701a2480a14d7e59d6301306199"
+  },
+  "https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css": {
+    "path": "assets/offline/ab1e55b05f962f8e.css",
+    "resolved": "https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css",
+    "bytes": 11981,
+    "sha256": "e16fe3d8fbf737955f6d50e1cc8f122b31c51c17da39d676099d655dfc4da1f5"
+  },
+  "https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css": {
+    "path": "assets/offline/ad2e98fea92964b2.css",
+    "resolved": "https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css",
+    "bytes": 4666,
+    "sha256": "d2e3a3ffe293ac338d4fda985f509ee18904f349f3e347a46660fc6dec548f90"
+  },
+  "https://cdn.jsdelivr.net/momentjs/latest/moment.min.js": {
+    "path": "assets/offline/322e717b93d426e4.js",
+    "resolved": "https://cdn.jsdelivr.net/momentjs/latest/moment.min.js",
+    "bytes": 51465,
+    "sha256": "d618d4869738e0dc22360f0ec0cbb6433257843f24723fac240dda0906685238"
+  },
+  "https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js": {
+    "path": "assets/offline/77055c2f37cc45eb.js",
+    "resolved": "https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js",
+    "bytes": 87103,
+    "sha256": "24362c145a81e1e2fd95185c4300d2595afb2cadd9f1580c2ddce95bc19b2084"
+  },
+  "https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css": {
+    "path": "assets/offline/3218bf0b4c8ec67e.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css",
+    "bytes": 8069,
+    "sha256": "94fdb66ec8fe748981a4f2090fdf4a2a0a3dbe5ace2e65c4ce46e95d692bdac7"
+  },
+  "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js": {
+    "path": "assets/offline/9ea06b477b4f90d0.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js",
+    "bytes": 80721,
+    "sha256": "0833b2e9c3a26c258476c46266e6877fc75218625162e0460be9a3a098a61c6c"
+  },
+  "https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js": {
+    "path": "assets/offline/00b712c3c875b8cd.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js",
+    "bytes": 32914,
+    "sha256": "e2ae551ac4dc5182a3ea7825eb7bfaa3a66d6b8befec757f317d964845b23aaf"
+  },
+  "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js": {
+    "path": "assets/offline/bd19dbbb831f8c42.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js",
+    "bytes": 205889,
+    "sha256": "206b6e8bb00fc7bba2c7ee80ca41db3e9e05ba7be0aa35abeba9cfd5357f5d0e"
+  },
+  "https://cdn.jsdelivr.net/npm/chart.js": {
+    "path": "assets/offline/459cd6d7de2fb24b.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/chart.js",
+    "bytes": 208522,
+    "sha256": "48444a82d4edcb5bec0f1965faacdde18d9c17db3063d042abada2f705c9f54a"
+  },
+  "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2": {
+    "path": "assets/offline/192cf8518505c89e.woff2",
+    "resolved": "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2",
+    "bytes": 115420,
+    "sha256": "ff66d1cfb67dbe3da432bbe36572cabfa4eef0e591303c2cba111474ba1d15bc"
+  },
+  "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/fonts/bootstrap-icons.woff2?1fa40e8900654d2863d011707b9fb6f2": {
+    "path": "assets/offline/ebf13c587eab2138.woff2",
+    "resolved": "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/fonts/bootstrap-icons.woff2?1fa40e8900654d2863d011707b9fb6f2",
+    "bytes": 121340,
+    "sha256": "cfe45b981d1b91b173361a34cfce5f60893dbd1ac4af2c3ac11fc17552c5401f"
+  },
+  "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/fonts/bootstrap-icons.woff2?1bb88866b4085542c8ed5fb61b9393dd": {
+    "path": "assets/offline/c103184dcf2cabed.woff2",
+    "resolved": "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/fonts/bootstrap-icons.woff2?1bb88866b4085542c8ed5fb61b9393dd",
+    "bytes": 130764,
+    "sha256": "ae167342f8ad5aad834e774ddc99528b72ac9171a684f23ed79d83ea176ca04e"
+  },
+  "https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js": {
+    "path": "assets/offline/02c0e093a9415bd9.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js",
+    "bytes": 89501,
+    "sha256": "ff1523fb7389539c84c65aba19260648793bb4f5e29329d2ee8804bc37a3fe6e"
+  },
+  "https://cdn.jsdelivr.net/npm/jquery@3.6.0": {
+    "path": "assets/offline/be9b77e8fd4ad64f.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/jquery@3.6.0",
+    "bytes": 89501,
+    "sha256": "ff1523fb7389539c84c65aba19260648793bb4f5e29329d2ee8804bc37a3fe6e"
+  },
+  "https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js": {
+    "path": "assets/offline/ac82083f08b38e5c.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js",
+    "bytes": 59693,
+    "sha256": "61dbc96d040afa476bf1681547281503be58b0b55abdfbb115a1dcb0df9ad04b"
+  },
+  "https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css": {
+    "path": "assets/offline/680d13a070165f98.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css",
+    "bytes": 31223,
+    "sha256": "5cb35411fccf18705e4ad112d836cb514459ddeefddc169b970cc99588fa5b64"
+  },
+  "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2": {
+    "path": "assets/offline/bc54ff7574b014c0.woff2",
+    "resolved": "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2",
+    "bytes": 19512,
+    "sha256": "f4722d10b9e1b41eefe3b51a026312ee1970edb7782f94b0080d3d475945734c"
+  },
+  "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/fonts/bootstrap-icons.woff?1bb88866b4085542c8ed5fb61b9393dd": {
+    "path": "assets/offline/16d301b016ec583e.woff",
+    "resolved": "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/fonts/bootstrap-icons.woff?1bb88866b4085542c8ed5fb61b9393dd",
+    "bytes": 176196,
+    "sha256": "40f14c01ceff49ce457ff1e54fdf51b39498f845a85741cb08047172ac556bb9"
+  },
+  "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css": {
+    "path": "assets/offline/9fb6ddf0a1dcf229.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css",
+    "bytes": 98171,
+    "sha256": "6a3defa669a8d70c714f5fefb490b4ae11430ef5e95627c30e797c0a27fb2fde"
+  },
+  "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/fonts/bootstrap-icons.woff?1fa40e8900654d2863d011707b9fb6f2": {
+    "path": "assets/offline/7445384566cbb8ce.woff",
+    "resolved": "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/fonts/bootstrap-icons.woff?1fa40e8900654d2863d011707b9fb6f2",
+    "bytes": 164360,
+    "sha256": "999550fafbfbc0e0474b3b5c945df287b079d2a23dc07dcc6240a7d2f18e081d"
+  },
+  "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css": {
+    "path": "assets/offline/d55d61f8152b62c7.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css",
+    "bytes": 93650,
+    "sha256": "93b524655ce4e54536ddf0fb4929871bc3f1a55d14760ffaecb517a9062ea3c5"
+  },
+  "https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css": {
+    "path": "assets/offline/9d2842cf83f43d76.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css",
+    "bytes": 15823,
+    "sha256": "907f4395f54e25a1da1181672f1a498e98b26f7bfc6dcb6c209a737472451e49"
+  },
+  "https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css": {
+    "path": "assets/offline/febd1387d851569a.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css",
+    "bytes": 16264,
+    "sha256": "cda4a81c187015d95ed2c71f1841540b08203cdec5fa2a7d5d1825a3c2166f8c"
+  },
+  "https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js": {
+    "path": "assets/offline/33859893654b9de2.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js",
+    "bytes": 73163,
+    "sha256": "f7244fff610595b944f76bf3080d74e3af42b5dd234f8f079e698cc39ac966b0"
+  },
+  "https://cdn.jsdelivr.net/npm/sweetalert2@11": {
+    "path": "assets/offline/d22ecaf30e58379b.js",
+    "resolved": "https://cdn.jsdelivr.net/npm/sweetalert2@11",
+    "bytes": 79150,
+    "sha256": "4e86f0e22e4771b5b8aac24c613c661806a678b1afa284d03cf6ad03d3e21a0a"
+  },
+  "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2": {
+    "path": "assets/offline/6281ade92a5adcf3.woff2",
+    "resolved": "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2",
+    "bytes": 119488,
+    "sha256": "24e5fae26b41c08b2df81c91669f5aaae71d81a84a4713fc56b5c621b78dd456"
+  },
+  "https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css": {
+    "path": "assets/offline/6a071a1df7b78afb.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css",
+    "bytes": 30251,
+    "sha256": "a1173e56fd474be04ddbefa81bd75cc465627ef2f5db261792e7d25fb7871743"
+  },
+  "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.eot?t=1690730386070": {
+    "path": "assets/offline/8b110bc8a51d2a00.eot",
+    "resolved": "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.eot?t=1690730386070",
+    "bytes": 464044,
+    "sha256": "25af6e928e283c8fa779f96635ebe68ec584017e6ea126ee8ac0b409c8bc961f"
+  },
+  "https://code.jquery.com/jquery-3.7.1.min.js": {
+    "path": "assets/offline/8c616cf0125970d4.js",
+    "resolved": "https://code.jquery.com/jquery-3.7.1.min.js",
+    "bytes": 87533,
+    "sha256": "fc9a93dd241f6b045cbff0481cf4e1901becd0e12fb45166a8f17f95823f0b1a"
+  },
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js": {
+    "path": "assets/offline/19e7da8fedcfe35f.js",
+    "resolved": "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+    "bytes": 364463,
+    "sha256": "98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-400-normal.woff2": {
+    "path": "assets/offline/9c210bcba5904e5c.woff2",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-400-normal.woff2",
+    "bytes": 11384,
+    "sha256": "8f98dd642986f1fa39c45b89665a57372897c235b36028e0e4a136e43dc5f8ab"
+  },
+  "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.eot?t=1690730386070#iefix": {
+    "path": "assets/offline/98a9bbf36c46c36b.eot",
+    "resolved": "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.eot?t=1690730386070#iefix",
+    "bytes": 464044,
+    "sha256": "25af6e928e283c8fa779f96635ebe68ec584017e6ea126ee8ac0b409c8bc961f"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-400-normal.woff": {
+    "path": "assets/offline/2f75af9ccba9fc13.woff",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-400-normal.woff",
+    "bytes": 15036,
+    "sha256": "e75c125ab5ed44c6e11792d60d8e414ab905b3b46712919d977cf54aaf3e64a2"
+  },
+  "https://www.w3schools.com/howto/img_avatar.png": {
+    "path": "assets/offline/8cad6feb255caeae.png",
+    "resolved": "https://www.w3schools.com/howto/img_avatar.png",
+    "bytes": 8229,
+    "sha256": "cd1b399a6bb93a264f35a2a268f3cb80a30ea2e4af5a5738f9251004188990d9"
+  },
+  "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.woff2?t=1690730386070": {
+    "path": "assets/offline/ee4f24e6a135e0df.woff2",
+    "resolved": "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.woff2?t=1690730386070",
+    "bytes": 143720,
+    "sha256": "b0d0b7e5101a1b8a54268b9188da520d19d74df9b35714a8ddb5987fad990591"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-ext-400-normal.woff2": {
+    "path": "assets/offline/326967272d338679.woff2",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-ext-400-normal.woff2",
+    "bytes": 6188,
+    "sha256": "3f58126100ed4da09c54adcfb8fa9f642be69101d1e18dc4c0a5489ee9b904c5"
+  },
+  "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuOKfMZg.ttf": {
+    "path": "assets/offline/ee9558be9f8a4d75.ttf",
+    "resolved": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuOKfMZg.ttf",
+    "bytes": 325748,
+    "sha256": "d0f4bc7faca468376e3db9b5e57afcdc2192134c9ac82a9511f32767b56853a4"
+  },
+  "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.woff?t=1690730386070": {
+    "path": "assets/offline/504905ca749630f5.woff",
+    "resolved": "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.woff?t=1690730386070",
+    "bytes": 197616,
+    "sha256": "529768191dd4b558d57d00f899b7d4e61db585e5c3169c911424e338222eebbc"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-ext-400-normal.woff": {
+    "path": "assets/offline/188f02d9d48975e7.woff",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-ext-400-normal.woff",
+    "bytes": 8336,
+    "sha256": "490b9a9482d8c192ef2009bf13ceb657bc28133a45267b31d8ccbacb742ee979"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-500-normal.woff2": {
+    "path": "assets/offline/f2264b9da01123c5.woff2",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-500-normal.woff2",
+    "bytes": 11432,
+    "sha256": "953a6a4294b1205a1b4d4b9e5529478e8c9e1c5a67a9aa24a551414cd85b6f51"
+  },
+  "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.ttf?t=1690730386070": {
+    "path": "assets/offline/9de92d1fb1b88080.ttf",
+    "resolved": "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.ttf?t=1690730386070",
+    "bytes": 463872,
+    "sha256": "4022c89b13643c9923f9a23df1133879bc6eed93397a193290fcf46d4f4ac434"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-500-normal.woff": {
+    "path": "assets/offline/7b8b62167d84f815.woff",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-500-normal.woff",
+    "bytes": 15040,
+    "sha256": "19f9249047bdb3ee51cc91472eb7792c899b042b5e76818969e8f12ae5117a79"
+  },
+  "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf": {
+    "path": "assets/offline/a699af1dea30b799.ttf",
+    "resolved": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf",
+    "bytes": 324820,
+    "sha256": "1b08e7fc267a5c7e1d614100f604b83e7e8a0be241f0f288faa2b3ac93a683ba"
+  },
+  "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.woff2": {
+    "path": "assets/offline/80cce94687e0ce21.woff2",
+    "resolved": "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.woff2",
+    "bytes": 4168,
+    "sha256": "c776ee1f1fe21cd72195e91de7afd5c9dbd007e9d06016254d65fbcc091398ca"
+  },
+  "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css": {
+    "path": "assets/offline/3972c57a70889695.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css",
+    "bytes": 90241,
+    "sha256": "3acdc5a13a47a40b2cd00192c49ab1baecbca151ef9434ccf9cd33be9f1fa175"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-ext-500-normal.woff2": {
+    "path": "assets/offline/3f5c090820e459e7.woff2",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-ext-500-normal.woff2",
+    "bytes": 6156,
+    "sha256": "65f0ca6dc939a76e0d63fd7b1fae1039d0a8963d2ce68a00ec20122a452e3b08"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-ext-500-normal.woff": {
+    "path": "assets/offline/473cb3533d83b9f9.woff",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-ext-500-normal.woff",
+    "bytes": 8320,
+    "sha256": "f9ccde25ff203676fc34fdcdbfdd3e3c595d909268ca7db1d6a4567363e49f99"
+  },
+  "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.svg?t=1690730386070#remixicon": {
+    "path": "assets/offline/6eae78fcadb5a13b.svg",
+    "resolved": "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.svg?t=1690730386070#remixicon",
+    "bytes": 2173685,
+    "sha256": "c728a74813a6aed0a24ae783d8d77837f3f996dcdeef8301cfb58fe272ea979e"
+  },
+  "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css": {
+    "path": "assets/offline/3b261c28df69447e.css",
+    "resolved": "https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css",
+    "bytes": 123299,
+    "sha256": "36d7dd118a21e6f09b740ac4ba086bff57b98a9c7a95830e6680596c229e8081"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-600-normal.woff2": {
+    "path": "assets/offline/fadd2c876c30d417.woff2",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-600-normal.woff2",
+    "bytes": 11544,
+    "sha256": "367d713287918784702563518f59239989da815c80d3c7337686b9816635a08b"
+  },
+  "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZg.ttf": {
+    "path": "assets/offline/e45972c7e9f24dc3.ttf",
+    "resolved": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZg.ttf",
+    "bytes": 325304,
+    "sha256": "8c883f63b2c4157d997319f2c8bc6995ed4357ef371940d31ca159004a4aae63"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-600-normal.woff": {
+    "path": "assets/offline/2ce02f417c9ce528.woff",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-600-normal.woff",
+    "bytes": 15212,
+    "sha256": "868dd01020c49c3ac3fab667974b5c0a61ea83b517fb58bdd140ef100ad3f4ef"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-ext-600-normal.woff2": {
+    "path": "assets/offline/beb6f40bfcda2da2.woff2",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-ext-600-normal.woff2",
+    "bytes": 6240,
+    "sha256": "066f04a662a3b3f740f2e711548003e12c2475375e58a59477aa440c8fd03a17"
+  },
+  "https://fonts.bunny.net/figtree/files/figtree-latin-ext-600-normal.woff": {
+    "path": "assets/offline/212be6f227849bb0.woff",
+    "resolved": "https://fonts.bunny.net/figtree/files/figtree-latin-ext-600-normal.woff",
+    "bytes": 8360,
+    "sha256": "7af7d708c207b9bb173a1c37c23ec966c1ee965fe59e150f30be3479aded0ab8"
+  },
+  "https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap": {
+    "path": "assets/offline/f2361d220cc90ed6.css",
+    "resolved": "https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap",
+    "bytes": 2532,
+    "sha256": "03360560ea5fffbec27a2c7aefaad149fe6e36e18d564d66bb2ff4aec0c3c35f"
+  },
+  "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf": {
+    "path": "assets/offline/87e867b52640b3b3.ttf",
+    "resolved": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf",
+    "bytes": 326048,
+    "sha256": "e7a1aaf7eda9f2fad4131725fa556265ec75ca7b2d756260173a040363e8d4f7"
+  },
+  "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf": {
+    "path": "assets/offline/6f49e1b28bce7339.ttf",
+    "resolved": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf",
+    "bytes": 326468,
+    "sha256": "b37284b5701b6b168dfc770aa1a4ac492106422fd3ba76bc7641e37434e8019c"
+  },
+  "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap": {
+    "path": "assets/offline/ee7ba94afea4ad68.css",
+    "resolved": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap",
+    "bytes": 780,
+    "sha256": "1567ec3d8c038ed52e47a830e6a43fbb36ee7b6d38666936f7c19b1e17b68a0c"
+  },
+  "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js": {
+    "path": "assets/offline/ed46bfb3ee1c1b39.js",
+    "resolved": "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+    "bytes": 198689,
+    "sha256": "e87e550794322e574a1fda0c1549a3c70dae5a93d9113417a429016838eab8cb"
+  },
+  "https://code.jquery.com/jquery-3.6.0.min.js": {
+    "path": "assets/offline/a3133eb07bfae987.js",
+    "resolved": "https://code.jquery.com/jquery-3.6.0.min.js",
+    "bytes": 89501,
+    "sha256": "ff1523fb7389539c84c65aba19260648793bb4f5e29329d2ee8804bc37a3fe6e"
+  }
+}

@@ -1,0 +1,2 @@
+<?php
+return ['title'=>'رسید حواله','outgoing_title'=>'رسید حواله ارسالی','incoming_title'=>'رسید حواله دریافتی','receipt_id'=>'شماره رسید','transfer_details'=>'مشخصات حواله','transfer_date'=>'تاریخ حواله','printed_at'=>'تاریخ چاپ','amount_words'=>'به حروف','no_commission'=>'بدون کمیشن','destination_branch'=>'شعبه پرداخت حواله','branch_address'=>'آدرس شعبه','customer_signature'=>'امضای مشتری','authorized_signature'=>'امضا و مهر مسئول','thank_you'=>'لطفاً رسید را تا زمان پرداخت حواله نزد خود نگهدارید.','print'=>'چاپ رسید','close'=>'بستن'];

@@ -1,0 +1,270 @@
+@extends('layouts.admin.base')
+@section('title', __('access.roles_title'))
+@section('css')
+    <style>
+        .offcanvas-header .btn-close {
+            margin: 0;
+        }
+
+        /* Fixed width for permissions column */
+        .permissions-cell {
+            width: 70%;
+            /* fixed width for all rows */
+            max-width: 70%;
+            white-space: normal !important;
+            vertical-align: middle;
+        }
+
+        /* Scrollable badge container */
+        .permissions-wrapper {
+            max-height: 100px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        /* Stylish permission badge */
+        .permission-badge {
+            display: inline-block;
+            background: #eef2ff;
+            /* soft indigo background */
+            color: #4f46e5;
+            /* indigo text */
+            border: 1px solid #c7d2fe;
+            /* indigo border */
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 6px;
+            margin: 2px;
+            white-space: nowrap;
+            transition: 0.15s all;
+        }
+
+        .permission-badge:hover {
+            background: #4f46e5;
+            color: #fff;
+            border-color: #4f46e5;
+        }
+
+        /* Table general tweaks */
+        .table td,
+        .table th {
+            vertical-align: middle;
+        }
+
+        .table thead th {
+            background-color: #f8f9fa;
+        }
+    </style>
+@endsection
+@section('content')
+    <div class="card border shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">{{ __('ui.roles_management') }}</h5>
+
+            @can('create roles')
+                <button class="btn btn-sm btn-primary d-flex align-items-center gap-1" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRoleForm">
+                    <i class="bi bi-plus-circle"></i>
+                    <span>{{ __('ui.add_role') }}</span>
+                </button>
+            @endcan
+        </div>
+
+        <div class="card-body">
+            <div class="table-responsive mt-3">
+                <table class="table-hover table-striped table-bordered table text-wrap">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th style="width: 180px;">{{ __('ui.name') }}</th>
+                            <th style="width: 200px;">{{ __('ui.permissions') }}</th>
+                            <th style="width: 100px;">{{ __('ui.actions') }}</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach ($roles as $role)
+                            <tr>
+                                <td style="width: 2%;">{{ $loop->iteration }}</td>
+                                <td style="width: 18%;" class="fw-semibold text-capitalize">{{ \App\Support\AccessLabels::role($role->name) }}</td>
+
+                                <td class="permissions-cell">
+                                    <div class="permissions-wrapper">
+                                        @foreach ($role->permissions as $perm)
+                                            <span class="permission-badge text-capitalize">
+                                                {{ \App\Support\AccessLabels::permission($perm->name) }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                </td>
+
+                                <td style="width: 10%;">
+                                    <div class="d-flex gap-1">
+
+                                        <button class="btn btn-sm btn-outline-warning edit-role-btn" data-id="{{ $role->id }}" data-name="{{ $role->name }}"
+                                            data-permissions='@json($role->permissions->pluck('name'))' data-bs-toggle="offcanvas" data-bs-target="#offcanvasRoleForm">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal-{{ $role->id }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+
+                                        <div class="modal fade" id="confirmDeleteModal-{{ $role->id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">{{ __('ui.confirm_delete') }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+
+                                                    <div class="modal-body">
+                                                        {{ __('ui.delete_role_message') }}
+                                                    </div>
+
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                            {{ __('ui.cancel') }}
+                                                        </button>
+
+                                                        <form method="POST" action="{{ route('admin.roles.destroy', $role) }}">
+                                                            @csrf @method('DELETE')
+                                                            <button type="submit" class="btn btn-danger">{{ __('ui.delete') }}</button>
+                                                        </form>
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRoleForm">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title" id="roleFormTitle">{{ __('ui.create_role') }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+
+        <div class="offcanvas-body">
+            <form id="roleForm" method="POST" action="{{ route('admin.roles.store') }}">
+                @csrf
+
+                <input type="hidden" name="_method" id="formMethod" value="POST">
+                <input type="hidden" name="role_id" id="roleId">
+
+                <div class="mb-3">
+                    <label class="form-label">{{ __('ui.role_name') }}</label>
+                    <input type="text" name="name" id="roleName" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">{{ __('ui.assign_permissions') }}</label>
+
+                    <div class="rounded border p-2" style="max-height: 500px; overflow-y: auto;">
+
+                        @php
+                            $groupedPermissions = $permissions->groupBy(fn($perm) => explode(' ', $perm->name)[1] ?? 'general');
+                            $icons = ['view' => 'eye', 'create' => 'plus-circle', 'update' => 'pencil-square', 'delete' => 'trash'];
+                        @endphp
+
+                        @foreach ($groupedPermissions as $group => $groupPermissions)
+                            <div class="border-bottom mb-3 pb-2">
+
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="text-muted fw-semibold text-capitalize mb-2">{{ \App\Support\AccessLabels::group($group) }}</h6>
+
+                                    <div>
+                                        <a href="javascript:;" class="text-primary small" onclick="toggleGroup('{{ Str::slug($group) }}', true)">
+                                            {{ __('ui.select_all') }}
+                                        </a>
+                                        /
+                                        <a href="javascript:;" class="text-danger small" onclick="toggleGroup('{{ Str::slug($group) }}', false)">
+                                            {{ __('ui.unselect_all') }}
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="row" id="group-{{ Str::slug($group) }}">
+
+                                    @foreach ($groupPermissions as $permission)
+                                        @php $action = explode(' ', $permission->name)[0]; @endphp
+
+                                        <div class="col-md-12">
+                                            <div class="form-check">
+                                                <input class="form-check-input permission-checkbox" type="checkbox" name="permissions[]" value="{{ $permission->name }}"
+                                                    id="perm-{{ $permission->id }}">
+
+                                                <label class="form-check-label text-capitalize" for="perm-{{ $permission->id }}">
+                                                    <i class="bi bi-{{ $icons[$action] ?? 'lock' }} me-1"></i>
+                                                    {{ \App\Support\AccessLabels::permission($permission->name) }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    @endforeach
+
+                                </div>
+
+                            </div>
+                        @endforeach
+
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 mt-3">
+                    {{ __('ui.save_role') }}
+                </button>
+
+            </form>
+        </div>
+    </div>
+@endsection
+@section('js')
+    <script>
+        const roleForm = document.getElementById('roleForm');
+        const roleTitle = document.getElementById('roleFormTitle');
+        const roleName = document.getElementById('roleName');
+        const roleId = document.getElementById('roleId');
+        const formMethod = document.getElementById('formMethod');
+
+        document.querySelectorAll('.edit-role-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                const name = btn.dataset.name;
+                const permissions = JSON.parse(btn.dataset.permissions);
+
+                roleForm.action = `/admin/roles/${id}`;
+                formMethod.value = 'PUT';
+                roleId.value = id;
+                roleName.value = name;
+                roleTitle.innerText = @json(__('access.edit_role'));
+
+                document.querySelectorAll('.permission-checkbox').forEach(cb => {
+                    cb.checked = permissions.includes(cb.value);
+                });
+            });
+        });
+
+        document.getElementById('offcanvasRoleForm').addEventListener('hidden.bs.offcanvas', () => {
+            roleForm.action = '{{ route('admin.roles.store') }}';
+            formMethod.value = 'POST';
+            roleForm.reset();
+            roleId.value = '';
+            roleTitle.innerText = @json(__('access.create_role'));
+        });
+
+        function toggleGroup(groupSlug, checked) {
+            const checkboxes = document.querySelectorAll(`#group-${groupSlug} input[type='checkbox']`);
+            checkboxes.forEach(cb => cb.checked = checked);
+        }
+    </script>
+@endsection
