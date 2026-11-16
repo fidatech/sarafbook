@@ -14,7 +14,7 @@ class EnsureTenant
     {
         $tenancy = app(Tenancy::class);
         if ($tenancy->enabled() && ! $tenancy->initialized()) {
-            return redirect('/platform');
+            return redirect('/');
         }
 
         // An expired Sarafi can still sign in, read and export its books, but not change them.

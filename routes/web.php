@@ -6,10 +6,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
 Route::middleware(['tenant', 'set_locale'])->group(function () {
-    Route::get('/', function () {
-        return auth()->check() ? redirect()->route('admin.dashboard') : redirect()->route('login');
-    });
-
     Route::post('/logout-ping', function () {
         if (Auth::check()) {
             Cache::forget('user-online-' . Auth::id());

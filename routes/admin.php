@@ -24,8 +24,6 @@ use App\Http\Controllers\Admin\{
     SafeController
 };
 
-// --- Redirect Logic ---
-Route::get('/', fn() => Auth::check() ? redirect()->route('admin.dashboard') : redirect()->route('login'));
 
 // --- Authenticated Admin Routes ---
 Route::middleware(['auth'])->prefix('admin')->as('admin.')->group(function () {

@@ -45,3 +45,7 @@ conditional-hidden
 # DataTables (Bootstrap 5 styling) builds its own rows, columns and pagination
 row col-sm-12 col-md-5 col-md-6 col-md-7 col-sm-6 justify-content-end justify-content-between justify-content-center align-items-center
 form-control-sm form-select-sm table-striped table-bordered table-hover table-sm table-responsive dt-buttons btn-group
+
+# icons of the public website (named in arrays in site/home.blade.php)
+#s-users #s-book #s-coins #s-paper-plane #s-chart-column #s-user-shield
+#s-database #s-language #s-mobile-screen #s-shield-halved

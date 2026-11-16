@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         then: function () {
+            // "/" and the public website (routes/site.php).
+            Route::middleware(['web', 'set_locale'])->group(base_path('routes/site.php'));
+
             // The platform panel: only on the platform's own address (CENTRAL_DOMAINS).
             Route::middleware(['web', 'central', 'set_locale'])
                 ->prefix('platform')

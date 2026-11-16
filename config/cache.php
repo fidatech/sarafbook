@@ -138,6 +138,15 @@ return [
     |
     */
 
-    'serializable_classes' => false,
+    // Objects the application itself keeps in the cache (the Sarafi's settings, last-seen times).
+    'serializable_classes' => [
+        App\Models\Setting::class,
+        App\Models\Currency::class,
+        Illuminate\Support\Carbon::class,
+        Carbon\Carbon::class,
+        Carbon\CarbonImmutable::class,
+        Illuminate\Database\Eloquent\Collection::class,
+        Illuminate\Support\Collection::class,
+    ],
 
 ];
