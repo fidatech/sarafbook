@@ -30,5 +30,12 @@ args=("$NAME" "--name=${TENANT_TITLE:-$NAME}" "--status=${TENANT_STATUS:-trial}"
 [ -n "${TENANT_EXPIRES:-}" ] && args+=("--expires=$TENANT_EXPIRES")
 # the last table of the command shows the password: keep only the lines above it
 "$PHP" artisan tenants:create "${args[@]}" 2>&1 | grep -vE "^\s*[|+]" | sed "s/${SARAFI_ADMIN_PASSWORD//\//\\/}/(hidden)/g"
+if [ "${DEMO_DATA:-0}" = 1 ]; then
+    echo "== Sample data"
+    "$PHP" artisan tenants:run "db:seed --class=DemoSeeder --force" --tenant="$NAME" --no-interaction 2>&1 | tail -25
+fi
+"$PHP" artisan tenants:list --no-interaction 2>&1 | grep -E "Short name| $NAME " || true
+code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 "https://$NAME.$DOMAIN/login" || true)
+echo "https://$NAME.$DOMAIN/login answered: $code"
 echo "Address: https://$NAME.$DOMAIN   username: admin   password: the secret SARAFI_ADMIN_PASSWORD"
 echo "Run AutoSSL in cPanel so the new address gets its certificate."

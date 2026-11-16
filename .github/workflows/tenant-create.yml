@@ -20,6 +20,10 @@ on:
         default: trial
       expires:
         description: Paid until (YYYY-MM-DD), optional
+      demo_data:
+        description: Fill it with sample customers, transactions and exchanges
+        type: boolean
+        default: false
 
 concurrency:
   group: production
@@ -42,6 +46,7 @@ jobs:
       TENANT_TITLE: ${{ inputs.title }}
       TENANT_STATUS: ${{ inputs.status }}
       TENANT_EXPIRES: ${{ inputs.expires }}
+      DEMO_DATA: ${{ inputs.demo_data && '1' || '0' }}
       SARAFI_ADMIN_PASSWORD: ${{ secrets.SARAFI_ADMIN_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +58,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           {
-            for name in APP_DOMAIN TENANT_NAME TENANT_TITLE TENANT_STATUS TENANT_EXPIRES SARAFI_ADMIN_PASSWORD; do
+            for name in APP_DOMAIN TENANT_NAME TENANT_TITLE TENANT_STATUS TENANT_EXPIRES DEMO_DATA SARAFI_ADMIN_PASSWORD; do
               printf 'export %s=%q\n' "$name" "${!name}"
             done
             cat scripts/deploy/cpanel-tenant.sh
