@@ -1,4 +1,24 @@
-<div id="dashboardContent" class="dashboard-content">
+{{-- The part of the dashboard that is loaded again when the currency or the period changes. --}}
+@php
+    $pending = (int) ($remittanceStats->pending_count ?? 0);
+    $mixed = ! $selectedCurrency;
+    $entryCount = format_amount($totals['transactions'], 0);
+    $exchangeCount = format_amount($exchangeStats->total_count ?? 0, 0);
+    $exchangeNote = __('dashboard.purchase').' '.(int) ($exchangeStats->purchase_count ?? 0).' · '.__('dashboard.sale').' '.(int) ($exchangeStats->sell_count ?? 0);
+    $remittanceCount = format_amount($remittanceStats->total_count ?? 0, 0);
+    $remittanceNote = __('ui.outgoing').' '.(int) ($remittanceStats->outgoing_count ?? 0).' · '.__('ui.incoming').' '.(int) ($remittanceStats->incoming_count ?? 0);
+    $pendingNote = $pending > 0 ? __('dashboard.needs_payment') : __('dashboard.nothing_waiting');
+    $pendingTone = $pending > 0 ? 'amber' : 'green';
+    $linkEntries = url('admin/transactions');
+    $linkExchanges = route('admin.exchanges.index');
+    $linkRemittances = route('admin.remittances.outgoing');
+    $linkPending = route('admin.remittances.pendingIncoming');
+    $panels = [
+        [__('dashboard.customer_balances'), __('dashboard.customer_position'), $customerBalances, 'users', 'violet'],
+        [__('dashboard.saraf_balances'), __('dashboard.saraf_position'), $sarafBalances, 'building-columns', 'amber'],
+    ];
+@endphp
+<div id="dashboardContent" class="db-content">
     <script type="application/json" id="dashboardChartData">{!! json_encode([
         'dailyFlow' => $dailyFlow->values(),
         'profitLoss' => $profitLossByCurrency->values(),
@@ -8,106 +28,189 @@
         'sarafBalances' => $sarafBalances->pluck('balance', 'currency'),
     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!}</script>
 
-    <div class="dashboard-heading dashboard-overview-heading">
-        <div><span>{{ __('dashboard.snapshot') }}</span><h4>{{ __('dashboard.overview') }}</h4></div>
-        <small><i class="bi bi-calendar3 me-1" aria-hidden="true"></i>{{ $selectedDate }}</small>
-    </div>
-    <div class="metric-grid">
-        @php
-            $cards = [
-                [__('dashboard.customers'), $totals['customers'], 'bi-people', 'blue', url('admin/accounts')],
-                [__('dashboard.cash_accounts'), $totals['cash_accounts'], 'bi-wallet2', 'teal', url('admin/accounts')],
-                [__('dashboard.sarafs'), $totals['sarafs'], 'bi-bank', 'violet', url('admin/sarafs')],
-                [__('dashboard.remittances'), $totals['remittances'], 'bi-send', 'orange', url('admin/remittances')],
-                [__('dashboard.exchanges'), $totals['exchanges'], 'bi-currency-exchange', 'green', url('admin/exchanges')],
-                [__('dashboard.users'), $totals['users'], 'bi-person-badge', 'pink', url('admin/users')],
-                [__('dashboard.active_accounts'), $totals['accounts'], 'bi-journal-check', 'navy', url('admin/accounts')],
-                [__('dashboard.period_entries'), $totals['transactions'], 'bi-arrow-left-right', 'amber', url('admin/transactions')],
-            ];
-        @endphp
-        @foreach($cards as [$label, $value, $icon, $tone, $url])
-            <a href="{{ $url }}" class="metric-card metric-{{ $tone }}" aria-label="{{ $label }}: {{ format_amount($value, 0) }}">
-                <span class="metric-top">
-                    <span class="metric-icon"><i class="bi {{ $icon }}" aria-hidden="true"></i></span>
-                    <span class="metric-arrow"><i class="bi bi-arrow-up-right" aria-hidden="true"></i></span>
-                </span>
-                <span class="metric-copy">
-                    <small>{{ $label }}</small>
-                    <strong dir="ltr">{{ format_amount($value, 0) }}</strong>
-                </span>
-            </a>
-        @endforeach
-    </div>
+    {{-- 1. cash in the safe: the first thing a Saraf wants to know --}}
+    <section class="db-section" aria-labelledby="db-cash-title">
+        <div class="db-head">
+            <h2 id="db-cash-title"><x-icon name="vault" /> {{ __('dashboard.cash_accounts') }}</h2>
+            <span>{{ __('dashboard.cash_available') }}</span>
+        </div>
+        <div class="db-cash">
+            @forelse ($cashBalances as $row)
+                <div class="db-cash-card {{ $row->balance < 0 ? 'is-negative' : '' }}">
+                    <span class="db-cash-code">{{ $row->currency }}</span>
+                    <strong dir="ltr">{{ format_amount($row->balance, 2) }}</strong>
+                    <small>{{ $row->account_count }} {{ __('dashboard.accounts') }}</small>
+                </div>
+            @empty
+                <div class="db-empty"><x-icon name="inbox" /> {{ __('dashboard.no_balance') }}</div>
+            @endforelse
+        </div>
+    </section>
 
-    <div class="dashboard-heading">
-        <div><span>{{ __('dashboard.current_position') }}</span><h4>{{ __('dashboard.balances_by_currency') }}</h4></div>
-        <small>{{ __('dashboard.live_balances') }} · {{ $selectedCurrency?->code ?? __('dashboard.all_currencies') }}</small>
-    </div>
+    {{-- 2. the period in numbers --}}
+    <section class="db-section" aria-labelledby="db-period-title">
+        <div class="db-head">
+            <h2 id="db-period-title"><x-icon name="calendar-check" /> {{ $selectedDate }}</h2>
+            <span>{{ $selectedCurrency?->code ?? __('dashboard.all_currencies') }}</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-6 col-xl-3"><x-stat :label="__('dashboard.period_entries')" :value="$entryCount" icon="right-left" tone="blue" :href="$linkEntries" /></div>
+            <div class="col-6 col-xl-3"><x-stat :label="__('dashboard.exchanges')" :value="$exchangeCount" icon="coins" tone="green" :href="$linkExchanges" :note="$exchangeNote" /></div>
+            <div class="col-6 col-xl-3"><x-stat :label="__('dashboard.remittances')" :value="$remittanceCount" icon="paper-plane" tone="violet" :href="$linkRemittances" :note="$remittanceNote" /></div>
+            <div class="col-6 col-xl-3"><x-stat :label="__('ui.pending_remittances')" :value="$pending" icon="hourglass-half" :tone="$pendingTone" :href="$linkPending" :note="$pendingNote" /></div>
+        </div>
+    </section>
 
-    @php
-        $balancePanels = [
-            [__('dashboard.cash_accounts'), __('dashboard.cash_available'), $cashBalances, 'bi-safe2', 'blue'],
-            [__('dashboard.customer_balances'), __('dashboard.customer_position'), $customerBalances, 'bi-people', 'violet'],
-            [__('dashboard.saraf_balances'), __('dashboard.saraf_position'), $sarafBalances, 'bi-bank2', 'teal'],
-        ];
-    @endphp
-    <div class="balance-grid">
-        @foreach($balancePanels as [$title, $subtitle, $rows, $icon, $tone])
-            <section class="panel balance-panel tone-{{ $tone }}">
-                <div class="panel-head"><div class="panel-icon"><i class="bi {{ $icon }}" aria-hidden="true"></i></div><div class="panel-head-copy"><h5>{{ $title }}</h5><p>{{ $subtitle }}</p></div><span class="panel-head-mark"><i class="bi bi-three-dots" aria-hidden="true"></i></span></div>
-                <div class="currency-list">
-                    @forelse($rows as $row)
-                        <div class="currency-row">
-                            <span class="currency-badge">{{ $row->currency }}</span>
-                            <div class="currency-amount"><strong dir="ltr" class="{{ $row->balance < 0 ? 'amount-negative' : 'amount-positive' }}">{{ format_amount(abs($row->balance), 2) }}</strong><small>{{ $row->balance < 0 ? __('dashboard.debit') : __('dashboard.credit') }} · {{ $row->account_count }} {{ __('dashboard.accounts') }}</small></div>
-                        </div>
+    {{-- 3. movement of the period, and who owes whom --}}
+    <div class="row g-3 db-section">
+        <div class="col-xl-8">
+            <section class="card h-100" aria-labelledby="db-flow-title">
+                <div class="card-header"><h2 class="card-title" id="db-flow-title">{{ __('dashboard.credit_debit_flow') }}</h2><span class="db-muted">{{ $selectedDate }}</span></div>
+                <div class="card-body">
+                    @if ($mixed && $dailyFlow->isNotEmpty())
+                        <p class="db-note"><x-icon name="circle-info" /> {{ __('dashboard.mixed_note') }}</p>
+                    @endif
+                    @if ($dailyFlow->isEmpty())
+                        <div class="db-empty is-tall"><x-icon name="chart-line" /> {{ __('dashboard.no_transactions') }}</div>
+                    @else
+                        <div class="db-chart"><canvas id="dailyFlowChart" role="img" aria-label="{{ __('dashboard.credit_debit_flow') }}"></canvas></div>
+                    @endif
+                </div>
+            </section>
+        </div>
+        <div class="col-xl-4">
+            <section class="card h-100" aria-labelledby="db-position-title">
+                <div class="card-header"><h2 class="card-title" id="db-position-title">{{ __('dashboard.total_position') }}</h2><a class="db-link" href="{{ url('admin/reports/balance') }}">{{ __('dashboard.view_all') }}</a></div>
+                <div class="card-body">
+                    <h3 class="db-sub is-credit"><x-icon name="arrow-down" /> {{ __('dashboard.creditors') }} <small>{{ __('dashboard.we_owe') }}</small></h3>
+                    @forelse ($creditorBalances as $row)
+                        <div class="db-line"><span><b>{{ $row->currency }}</b> <small>{{ $row->account_count }} {{ __('dashboard.accounts') }}</small></span><strong dir="ltr" class="db-pos">{{ format_amount($row->balance, 2) }}</strong></div>
                     @empty
-                        <div class="empty-state"><i class="bi bi-inbox"></i><span>{{ __('dashboard.no_balance') }}</span></div>
+                        <div class="db-none">{{ __('dashboard.no_creditors') }}</div>
+                    @endforelse
+                    <h3 class="db-sub is-debit mt-3"><x-icon name="arrow-up" /> {{ __('dashboard.debtors') }} <small>{{ __('dashboard.owed_to_us') }}</small></h3>
+                    @forelse ($debtorBalances as $row)
+                        <div class="db-line"><span><b>{{ $row->currency }}</b> <small>{{ $row->account_count }} {{ __('dashboard.accounts') }}</small></span><strong dir="ltr" class="db-neg">{{ format_amount($row->balance, 2) }}</strong></div>
+                    @empty
+                        <div class="db-none">{{ __('dashboard.no_debtors') }}</div>
                     @endforelse
                 </div>
             </section>
+        </div>
+    </div>
+
+    {{-- 4. profit of the period, and balances of customers and Sarafs --}}
+    <div class="row g-3 db-section">
+        <div class="col-lg-6 col-xl-4">
+            <section class="card h-100" aria-labelledby="db-pnl-title">
+                <div class="card-header"><h2 class="card-title" id="db-pnl-title">{{ __('dashboard.profit_loss') }}</h2><span class="db-muted">{{ $selectedDate }}</span></div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 keep-table db-table">
+                        <thead><tr><th scope="col">{{ __('dashboard.currency') }}</th><th scope="col" class="text-end">{{ __('dashboard.income') }}</th><th scope="col" class="text-end">{{ __('dashboard.expense') }}</th><th scope="col" class="text-end">{{ __('dashboard.net_pnl') }}</th></tr></thead>
+                        <tbody>
+                        @forelse ($profitLossByCurrency as $row)
+                            <tr><th scope="row">{{ $row->currency }}</th><td class="text-end" dir="ltr">{{ format_amount($row->income, 2) }}</td><td class="text-end" dir="ltr">{{ format_amount($row->expense, 2) }}</td><td class="text-end" dir="ltr"><strong class="{{ $row->net_profit < 0 ? 'db-neg' : 'db-pos' }}">{{ format_amount($row->net_profit, 2) }}</strong></td></tr>
+                        @empty
+                            <tr><td colspan="4"><div class="db-none text-center">{{ __('dashboard.no_profit_loss') }}</div></td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($profitLossByCurrency->isNotEmpty())
+                    <div class="card-body pt-2"><div class="db-chart is-small"><canvas id="profitLossChart" role="img" aria-label="{{ __('dashboard.net_profit_currency') }}"></canvas></div></div>
+                @endif
+            </section>
+        </div>
+        @foreach ($panels as [$title, $subtitle, $rows, $icon, $tone])
+            <div class="col-lg-6 col-xl-4">
+                <section class="card h-100">
+                    <div class="card-header"><h2 class="card-title"><span class="db-dot kpi-{{ $tone }}"><span class="kpi-icon"><x-icon :name="$icon" /></span></span> {{ $title }}</h2></div>
+                    <div class="card-body">
+                        <p class="db-muted mb-2">{{ $subtitle }}</p>
+                        @forelse ($rows as $row)
+                            <div class="db-line"><span><b>{{ $row->currency }}</b> <small>{{ $row->account_count }} {{ __('dashboard.accounts') }}</small></span><span class="text-end"><strong dir="ltr" class="{{ $row->balance < 0 ? 'db-neg' : 'db-pos' }}">{{ format_amount(abs($row->balance), 2) }}</strong> <small class="db-side">{{ $row->balance < 0 ? __('dashboard.debit') : __('dashboard.credit') }}</small></span></div>
+                        @empty
+                            <div class="db-none">{{ __('dashboard.no_balance') }}</div>
+                        @endforelse
+                    </div>
+                </section>
+            </div>
         @endforeach
     </div>
 
-    <div class="position-grid">
-        <section class="panel position-card position-credit">
-            <div class="position-title"><span><i class="bi bi-arrow-down-left"></i></span><div><small>{{ __('dashboard.total_position') }}</small><h5>{{ __('dashboard.creditors') }}</h5></div></div>
-            @forelse($creditorBalances as $row)<div class="position-row"><span>{{ $row->currency }} <small>{{ $row->account_count }} {{ __('dashboard.accounts') }}</small></span><strong>{{ format_amount($row->balance, 2) }}</strong></div>@empty<div class="empty-inline">{{ __('dashboard.no_creditors') }}</div>@endforelse
-        </section>
-        <section class="panel position-card position-debit">
-            <div class="position-title"><span><i class="bi bi-arrow-up-right"></i></span><div><small>{{ __('dashboard.total_position') }}</small><h5>{{ __('dashboard.debtors') }}</h5></div></div>
-            @forelse($debtorBalances as $row)<div class="position-row"><span>{{ $row->currency }} <small>{{ $row->account_count }} {{ __('dashboard.accounts') }}</small></span><strong>{{ format_amount($row->balance, 2) }}</strong></div>@empty<div class="empty-inline">{{ __('dashboard.no_debtors') }}</div>@endforelse
-        </section>
+    {{-- 5. balances side by side, expenses and the last closing --}}
+    <div class="row g-3 db-section">
+        <div class="col-xl-8">
+            <section class="card h-100" aria-labelledby="db-bal-title">
+                <div class="card-header"><h2 class="card-title" id="db-bal-title">{{ __('dashboard.balances_by_currency') }}</h2><span class="db-muted">{{ __('dashboard.live_balances') }}</span></div>
+                <div class="card-body">
+                    @if ($cashBalances->isEmpty() && $customerBalances->isEmpty() && $sarafBalances->isEmpty())
+                        <div class="db-empty is-tall"><x-icon name="chart-column" /> {{ __('dashboard.no_balance') }}</div>
+                    @else
+                        <div class="db-chart"><canvas id="balanceChart" role="img" aria-label="{{ __('dashboard.balances_by_currency') }}"></canvas></div>
+                    @endif
+                </div>
+            </section>
+        </div>
+        <div class="col-xl-4 d-flex flex-column gap-3">
+            <section class="card" aria-labelledby="db-exp-title">
+                <div class="card-header"><h2 class="card-title" id="db-exp-title">{{ __('dashboard.approved_expenses') }}</h2><a class="db-link" href="{{ url('admin/expenses') }}">{{ __('dashboard.view_all') }}</a></div>
+                <div class="card-body">
+                    @forelse ($expensesByCurrency as $row)
+                        <div class="db-line"><span><b>{{ $row->currency }}</b></span><strong dir="ltr" class="db-neg">{{ format_amount($row->total, 2) }}</strong></div>
+                    @empty
+                        <div class="db-none">{{ __('dashboard.no_expenses') }}</div>
+                    @endforelse
+                </div>
+            </section>
+            <section class="card flex-fill" aria-labelledby="db-close-title">
+                <div class="card-header"><h2 class="card-title" id="db-close-title">{{ __('dashboard.last_closing') }}</h2><span class="db-muted" dir="ltr">{{ $latestClosing?->closing_date?->format('Y-m-d') ?? '' }}</span></div>
+                <div class="card-body">
+                    @if ($latestClosing)
+                        <div class="db-big" dir="ltr">{{ format_amount($latestClosing->final_balance ?? 0, 2) }}</div>
+                        <div class="db-line"><span>{{ __('dashboard.cash') }}</span><strong dir="ltr">{{ format_amount($latestClosing->cash_balance ?? 0, 2) }}</strong></div>
+                        <div class="db-line"><span>{{ __('dashboard.pnl') }}</span><strong dir="ltr">{{ format_amount(($latestClosing->profit_balance ?? 0) - ($latestClosing->loss_balance ?? 0), 2) }}</strong></div>
+                    @else
+                        <div class="db-none">{{ __('dashboard.no_closing') }}</div>
+                    @endif
+                </div>
+            </section>
+        </div>
     </div>
 
-    <div class="dashboard-heading"><div><span>{{ __('dashboard.performance') }}</span><h4>{{ __('dashboard.finance_summary') }}</h4></div><small>{{ $selectedDate }}</small></div>
-    <div class="finance-grid">
-        <section class="panel finance-card">
-            <div class="finance-head"><span class="finance-icon profit"><i class="bi bi-graph-up-arrow"></i></span><div><small>{{ __('dashboard.current_ledger') }}</small><h5>{{ __('dashboard.profit_loss') }}</h5></div></div>
-            @forelse($pnlBalances as $row)<div class="finance-line"><span>{{ $row->currency }}</span><strong class="{{ $row->balance < 0 ? 'amount-negative' : 'amount-positive' }}">{{ format_amount($row->balance, 2) }}</strong></div>@empty<div class="empty-inline">{{ __('dashboard.no_profit_loss') }}</div>@endforelse
-        </section>
-        <section class="panel finance-card">
-            <div class="finance-head"><span class="finance-icon expense"><i class="bi bi-receipt"></i></span><div><small>{{ $selectedDate }}</small><h5>{{ __('dashboard.approved_expenses') }}</h5></div></div>
-            @forelse($expensesByCurrency as $row)<div class="finance-line"><span>{{ $row->currency }}</span><strong class="amount-negative">{{ format_amount($row->total, 2) }}</strong></div>@empty<div class="empty-inline">{{ __('dashboard.no_expenses') }}</div>@endforelse
-        </section>
-        <section class="panel finance-card closing-card">
-            <div class="finance-head"><span class="finance-icon closing"><i class="bi bi-calendar2-check"></i></span><div><small>{{ $latestClosing?->closing_date?->format('M d, Y') ?? __('dashboard.no_closing') }}</small><h5>{{ __('dashboard.last_closing') }}</h5></div></div>
-            <div class="closing-value" dir="ltr">{{ format_amount($latestClosing?->final_balance ?? 0, 2) }}</div>
-            <div class="closing-breakdown"><span>{{ __('dashboard.cash') }} {{ format_amount($latestClosing?->cash_balance ?? 0, 2) }}</span><span>{{ __('dashboard.pnl') }} {{ format_amount(($latestClosing?->profit_balance ?? 0) - ($latestClosing?->loss_balance ?? 0), 2) }}</span></div>
-        </section>
-    </div>
+    {{-- 6. the newest entries --}}
+    <section class="card db-section" aria-labelledby="db-latest-title">
+        <div class="card-header"><h2 class="card-title" id="db-latest-title">{{ __('dashboard.latest_transactions') }}</h2><a class="db-link" href="{{ url('admin/transactions') }}">{{ __('dashboard.view_all') }} <x-icon name="arrow-right" /></a></div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0 db-table">
+                <thead><tr><th scope="col">{{ __('dashboard.account') }}</th><th scope="col">{{ __('dashboard.reference') }}</th><th scope="col">{{ __('dashboard.date') }}</th><th scope="col">{{ __('dashboard.type') }}</th><th scope="col" class="text-end">{{ __('dashboard.amount') }}</th></tr></thead>
+                <tbody>
+                @forelse ($latestTransactions as $transaction)
+                    <tr>
+                        <td><strong>{{ $transaction->account?->name ?? '—' }}</strong><br><small class="db-muted" dir="ltr">{{ $transaction->account?->code }}</small></td>
+                        <td>{{ $transaction->reference ?: '—' }}</td>
+                        <td dir="ltr">{{ $transaction->created_at?->format('Y-m-d H:i') }}</td>
+                        <td><span class="badge-soft {{ $transaction->transaction_type === 'credit' ? 'success' : 'danger' }}">{{ __('dashboard.'.$transaction->transaction_type) }}</span></td>
+                        <td class="text-end" dir="ltr"><strong>{{ format_amount($transaction->amount, 2) }}</strong> <small class="db-muted">{{ $transaction->currency?->code }}</small></td>
+                    </tr>
+                @empty
+                    <tr><td colspan="5"><div class="db-empty"><x-icon name="inbox" /> {{ __('dashboard.no_transactions') }}</div></td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
 
-    <div class="chart-grid">
-        <section class="panel chart-panel chart-wide"><div class="chart-head"><div><small>{{ __('dashboard.transaction_activity') }}</small><h5>{{ __('dashboard.credit_debit_flow') }}</h5></div><span>{{ $selectedDate }}</span></div><div class="chart-wrap"><canvas id="dailyFlowChart"></canvas></div></section>
-        <section class="panel chart-panel"><div class="chart-head"><div><small>{{ __('dashboard.period_performance') }}</small><h5>{{ __('dashboard.net_profit_currency') }}</h5></div></div><div class="chart-wrap"><canvas id="profitLossChart"></canvas></div></section>
-        <section class="panel chart-panel"><div class="chart-head"><div><small>{{ __('dashboard.snapshot') }}</small><h5>{{ __('dashboard.account_balances') }}</h5></div></div><div class="chart-wrap"><canvas id="balanceChart"></canvas></div></section>
-    </div>
-
-    <section class="panel recent-panel">
-        <div class="chart-head"><div><small>{{ __('dashboard.recent_activity') }}</small><h5>{{ __('dashboard.latest_transactions') }}</h5></div><a href="{{ url('admin/transactions') }}">{{ __('dashboard.view_all') }} <i class="bi bi-arrow-right"></i></a></div>
-        <div class="table-responsive"><table class="activity-table"><thead><tr><th>{{ __('dashboard.account') }}</th><th>{{ __('dashboard.reference') }}</th><th>{{ __('dashboard.date') }}</th><th>{{ __('dashboard.type') }}</th><th class="text-end">{{ __('dashboard.amount') }}</th></tr></thead><tbody>
-            @forelse($latestTransactions as $transaction)<tr><td><strong>{{ $transaction->account?->name ?? '—' }}</strong><small>{{ $transaction->account?->code }}</small></td><td>{{ $transaction->reference ?: '—' }}</td><td>{{ $transaction->created_at?->format('M d, Y · H:i') }}</td><td><span class="type-pill {{ $transaction->transaction_type }}">{{ __('dashboard.' . $transaction->transaction_type) }}</span></td><td class="text-end"><strong>{{ format_amount($transaction->amount, 2) }}</strong> <small>{{ $transaction->currency?->code }}</small></td></tr>
-            @empty<tr><td colspan="5"><div class="empty-state"><i class="bi bi-inbox"></i><span>{{ __('dashboard.no_transactions') }}</span></div></td></tr>@endforelse
-        </tbody></table></div>
+    {{-- 7. the size of the books --}}
+    <section class="db-section" aria-label="{{ __('dashboard.overview') }}">
+        <div class="db-counts">
+            <a href="{{ url('admin/accounts') }}"><x-icon name="users" /> <strong>{{ format_amount($totals['customers'], 0) }}</strong> {{ __('dashboard.customers') }}</a>
+            <a href="{{ url('admin/accounts') }}"><x-icon name="building-columns" /> <strong>{{ format_amount($totals['sarafs'], 0) }}</strong> {{ __('dashboard.sarafs') }}</a>
+            <a href="{{ url('admin/safe') }}"><x-icon name="vault" /> <strong>{{ format_amount($totals['cash_accounts'], 0) }}</strong> {{ __('dashboard.cash_accounts') }}</a>
+            <a href="{{ url('admin/accounts') }}"><x-icon name="book" /> <strong>{{ format_amount($totals['accounts'], 0) }}</strong> {{ __('dashboard.active_accounts') }}</a>
+            <a href="{{ route('admin.exchanges.index') }}"><x-icon name="coins" /> <strong>{{ format_amount($totals['exchanges'], 0) }}</strong> {{ __('dashboard.exchanges') }}</a>
+            <a href="{{ route('admin.remittances.outgoing') }}"><x-icon name="paper-plane" /> <strong>{{ format_amount($totals['remittances'], 0) }}</strong> {{ __('dashboard.remittances') }}</a>
+            <a href="{{ url('admin/users') }}"><x-icon name="users-gear" /> <strong>{{ format_amount($totals['users'], 0) }}</strong> {{ __('dashboard.users') }}</a>
+        </div>
     </section>
 </div>

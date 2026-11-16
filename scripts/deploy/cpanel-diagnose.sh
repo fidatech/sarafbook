@@ -12,6 +12,14 @@ for u in $URL; do
 done
 rm -f /tmp/sb-check.html
 echo "(errors logged before $STAMP are older than these requests)"
+if [ -n "${SMOKE_TENANT:-}" ]; then
+    PHP=""
+    for candidate in /opt/cpanel/ea-php84/root/usr/bin/php /opt/alt/php84/usr/bin/php /opt/cpanel/ea-php85/root/usr/bin/php "$(command -v php || true)"; do
+        [ -n "$candidate" ] && [ -x "$candidate" ] && PHP="$candidate" && break
+    done
+    echo "== pages of $SMOKE_TENANT opened as its administrator"
+    (cd "$APP" && "$PHP" artisan tenants:smoke "$SMOKE_TENANT" ${SMOKE_PATHS:-} --no-interaction 2>&1 | sed -E "s#$HOME/##g" | cut -c1-420) || true
+fi
 LOG=$(ls -t "$APP"/storage/logs/*.log 2>/dev/null | head -1)
 [ -n "$LOG" ] || { echo "No log file yet."; exit 0; }
 echo "== newest errors"

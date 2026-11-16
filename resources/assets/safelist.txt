@@ -49,3 +49,7 @@ form-control-sm form-select-sm table-striped table-bordered table-hover table-sm
 # icons of the public website (named in arrays in site/home.blade.php)
 #s-users #s-book #s-coins #s-paper-plane #s-chart-column #s-user-shield
 #s-database #s-language #s-mobile-screen #s-shield-halved
+
+# dashboard: icons named in arrays, and the tones of the small icon tiles
+#s-users #s-building-columns #s-inbox #s-chart-line #s-hourglass-half
+kpi-violet kpi-amber kpi-green kpi-blue is-loading is-negative

@@ -76,4 +76,13 @@ return [
     'update_failed' => 'Could not update dashboard',
     'try_again' => 'Please try again.',
     'ok' => 'OK',
+    'purchase' => 'Bought',
+    'sale' => 'Sold',
+    'needs_payment' => 'Waiting to be paid',
+    'nothing_waiting' => 'Nothing waiting',
+    'mixed_note' => 'All currencies are added together here. Choose one currency above for exact amounts.',
+    'we_owe' => 'we owe them',
+    'owed_to_us' => 'they owe us',
+    'income' => 'Income',
+    'expense' => 'Expenses',
 ];
