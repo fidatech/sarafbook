@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
@@ -75,14 +76,19 @@ class TenantProvisioner
             @mkdir($tenant->storagePath($dir), 0755, true);
         }
 
+        $imported = false;
         $username = $data['admin_username'] ?? 'admin';
         $password = $data['admin_password'] ?? Str::password(12, symbols: false);
 
         try {
+            // A database that already holds SarafBook tables (a client brought from an earlier
+            // installation) keeps its users, settings and data. An empty one, for example a
+            // database made by hand in cPanel, is filled with the starting data like a new one.
+            $imported = $existing && $this->tenancy->run($tenant, fn () => Schema::hasTable('users'));
+
             $this->migrate($tenant);
 
-            // A database brought from an existing installation keeps its own users and settings.
-            if (! $existing) {
+            if (! $imported) {
                 $this->tenancy->run($tenant, function () use ($data, $username, $password) {
                     Artisan::call('db:seed', ['--class' => config('tenancy.seeder'), '--force' => true]);
 
@@ -115,7 +121,7 @@ class TenantProvisioner
             throw new RuntimeException('The Sarafi could not be created: '.$e->getMessage(), 0, $e);
         }
 
-        return [$tenant, $username, $existing ? '' : $password];
+        return [$tenant, $username, $imported ? '' : $password];
     }
 
     /** Core migrations, then the migrations of the tenant's own override layer, on its database only. */

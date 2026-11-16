@@ -16,7 +16,7 @@ class TenantsCreate extends Command
         {--expires= : Date the subscription ends (YYYY-MM-DD)}
         {--admin-username=admin}
         {--admin-password= : Left empty, a password is made and shown once}
-        {--existing-database : The database <prefix><slug> already exists (an imported client); it is migrated, not seeded}';
+        {--existing-database : The database <prefix><slug> already exists: an imported client keeps its data, an empty database (made in cPanel) is filled like a new one}';
 
     protected $description = 'Create a Sarafi with its own database';
 
