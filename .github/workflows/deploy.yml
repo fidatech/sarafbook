@@ -1,0 +1,57 @@
+name: Deploy
+
+# Installs SarafBook on the cPanel server the first time, and updates it afterwards.
+# Secrets: PROD_SSH_HOST, PROD_SSH_USER, PROD_SSH_KEY, optional PROD_SSH_PORT,
+#          DB_PASSWORD, PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD
+
+on:
+  workflow_dispatch:
+    inputs:
+      reset_admin:
+        description: Set the platform administrator's password again from the secrets
+        type: boolean
+        default: false
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+      PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+      PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+      PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+      APP_DOMAIN: ${{ vars.APP_DOMAIN || 'sarafbook.com' }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      PLATFORM_ADMIN_EMAIL: ${{ secrets.PLATFORM_ADMIN_EMAIL }}
+      PLATFORM_ADMIN_PASSWORD: ${{ secrets.PLATFORM_ADMIN_PASSWORD }}
+      RESET_ADMIN: ${{ inputs.reset_admin && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for name in PROD_SSH_HOST PROD_SSH_USER PROD_SSH_KEY; do
+            [ -n "${!name}" ] || { echo "::error::The secret $name is not set."; exit 1; }
+          done
+          bash scripts/deploy/ssh-setup.sh
+
+      - name: Install or update on the server
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          {
+            for name in APP_DOMAIN DB_PASSWORD PLATFORM_ADMIN_EMAIL PLATFORM_ADMIN_PASSWORD RESET_ADMIN; do
+              printf 'export %s=%q\n' "$name" "${!name}"
+            done
+            cat scripts/deploy/cpanel-install.sh
+          } | ssh production 'bash -s'

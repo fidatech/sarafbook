@@ -1,0 +1,60 @@
+name: New Sarafi
+
+# Adds one Sarafi on the cPanel server: subdomain, database, tables, starting data.
+# Its administrator signs in with username "admin" and the secret SARAFI_ADMIN_PASSWORD,
+# and should change the password on first use.
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: Short name (a-z, 0-9, -). The address becomes <name>.sarafbook.com
+        required: true
+      title:
+        description: Name of the Sarafi
+        required: true
+      status:
+        description: Starts as
+        type: choice
+        options: [trial, active]
+        default: trial
+      expires:
+        description: Paid until (YYYY-MM-DD), optional
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+      PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+      PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+      PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+      APP_DOMAIN: ${{ vars.APP_DOMAIN || 'sarafbook.com' }}
+      TENANT_NAME: ${{ inputs.name }}
+      TENANT_TITLE: ${{ inputs.title }}
+      TENANT_STATUS: ${{ inputs.status }}
+      TENANT_EXPIRES: ${{ inputs.expires }}
+      SARAFI_ADMIN_PASSWORD: ${{ secrets.SARAFI_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up SSH
+        shell: bash
+        run: bash scripts/deploy/ssh-setup.sh
+      - name: Create the Sarafi on the server
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          {
+            for name in APP_DOMAIN TENANT_NAME TENANT_TITLE TENANT_STATUS TENANT_EXPIRES SARAFI_ADMIN_PASSWORD; do
+              printf 'export %s=%q\n' "$name" "${!name}"
+            done
+            cat scripts/deploy/cpanel-tenant.sh
+          } | ssh production 'bash -s'
