@@ -1,0 +1,40 @@
+name: Diagnose
+
+# Requests one address from the server and prints the newest application errors (shortened).
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Address to request first (optional)
+      errors:
+        description: How many of the newest errors to show
+        default: '3'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+      PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+      PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+      PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+      CHECK_URL: ${{ inputs.url }}
+      ERRORS: ${{ inputs.errors }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up SSH
+        shell: bash
+        run: bash scripts/deploy/ssh-setup.sh
+      - name: Read the newest errors
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          {
+            for name in CHECK_URL ERRORS; do printf 'export %s=%q\n' "$name" "${!name}"; done
+            cat scripts/deploy/cpanel-diagnose.sh
+          } | ssh production 'bash -s'
