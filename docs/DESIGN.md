@@ -2,19 +2,19 @@
 
 ## The look
 
-SarafBook uses the fida-admin template of Fida Technologies in the formal palette of Rahnuma:
-navy `#0a1f3d`, deep blue `#0c3b7a`, gold `#c9a227`; a navy sidebar with the gold lattice, the
-open page marked in gold, a gold rule under the top bar. Light and dark mode, English, Dari and
-Pashto with a right-to-left style sheet, Vazirmatn / Noto Naskh Arabic / Noto Kufi Arabic
-(`FONT_DARI`, `FONT_PASHTO`).
+SarafBook uses the fida-admin template of Fida Technologies exactly as Fida Sarafi does: blue
+`#2160d8` with the blue-to-violet brand gradient, a light sidebar, soft cards and tiles. Light and
+dark mode, English, Dari and Pashto with a right-to-left style sheet, Vazirmatn / Noto Naskh
+Arabic / Noto Kufi Arabic (`FONT_DARI`, `FONT_PASHTO`). `fida.css` and `erp.css` are the files of
+Fida Sarafi; copy newer ones over them to follow the template.
 
 - Shell: `resources/views/layouts/shell.blade.php` with `partials/sidebar`, `partials/topbar`.
   `layouts.admin.base` is the Sarafi's layout, `layouts.platform` the platform panel's,
   `layouts.auth` the sign-in page.
 - Parts: `<x-page-header>`, `<x-stat>`, `<x-icon>`, `<x-brand-logo>`, toasts for messages, a
   confirm box on forms with `data-confirm`, page search with Ctrl+K, a tab bar on phones.
-- Sources: `resources/assets/css` (Bootstrap 5.3, `fida.css`, `erp.css`, `rasmi.css`,
-  `sarafbook.css`) and `resources/assets/js/app.js`. `php tools/build-assets.php` writes
+- Sources: `resources/assets/css` (Bootstrap 5.3, `fida.css`, `erp.css`, `site.css` for
+  the public website, `sarafbook.css`) and `resources/assets/js/app.js`. `php tools/build-assets.php` writes
   `public/css/app.css`, `public/css/app.rtl.css`, `public/js/app.js`, `public/icons.svg`,
   keeping only the classes and icons the views use. Write class names in full, or add them to
   `resources/assets/safelist.txt`. `--check` fails when the built files are out of date.

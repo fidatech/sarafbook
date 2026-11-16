@@ -9,7 +9,7 @@
 <title>{{ $fullTitle }}</title>
 <meta name="description" content="{{ $description }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<meta name="theme-color" content="#0a1f3d">
+<meta name="theme-color" content="#2160d8">
 <meta name="color-scheme" content="light dark">
 <link rel="canonical" href="{{ url()->current() }}">
 <link rel="icon" href="{{ asset_v('img/favicon.svg') }}" type="image/svg+xml">

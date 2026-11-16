@@ -105,7 +105,7 @@
                     @if ($items && $allowed($item['can']))
                         <li class="menu-item has-sub {{ $open ? 'active open' : '' }}">
                             <a class="menu-link {{ $open ? '' : 'collapsed' }}" href="#menu-{{ $item['id'] }}" role="button" data-bs-toggle="collapse" aria-expanded="{{ $open ? 'true' : 'false' }}" aria-controls="menu-{{ $item['id'] }}">
-                                <span class="menu-icon"><x-icon :name="$item['icon']" /></span><span class="menu-text">{{ $item['group'] }}</span><x-icon name="chevron-right" class="menu-arrow ms-auto" />
+                                <span class="menu-icon"><x-icon :name="$item['icon']" /></span><span class="menu-text">{{ $item['group'] }}</span><x-icon name="chevron-right" class="menu-arrow" />
                             </a>
                             <ul class="menu-sub collapse {{ $open ? 'show' : '' }}" id="menu-{{ $item['id'] }}" data-bs-parent="#sidebarMenu">
                                 @foreach ($items as $sub)

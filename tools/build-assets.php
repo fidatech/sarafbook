@@ -7,7 +7,7 @@
  *   php tools/build-assets.php --check    exit 1 if the committed files are out of date
  *
  * What it does
- *   CSS   Bootstrap 5.3 + the fida-admin stylesheet + erp.css + rasmi.css + sarafbook.css, with every rule whose
+ *   CSS   Bootstrap 5.3 + the fida-admin stylesheet + erp.css + site.css + sarafbook.css, with every rule whose
  *         classes are never used in the application removed, then minified.
  *   Icons One SVG sprite holding only the Font Awesome icons the application uses.
  *   JS    resources/assets/js/app.js with comments and indentation stripped.
@@ -218,8 +218,8 @@ function build_css(array $files, array $tokens): string
 
 $assets = "$root/resources/assets";
 $outputs = [
-    'public/css/app.css' => build_css(["$assets/css/bootstrap.min.css", "$assets/css/fida.css", "$assets/css/erp.css", "$assets/css/rasmi.css", "$assets/css/sarafbook.css"], $tokens),
-    'public/css/app.rtl.css' => build_css(["$assets/css/bootstrap.rtl.min.css", "$assets/css/fida.css", "$assets/css/erp.css", "$assets/css/rasmi.css", "$assets/css/sarafbook.css"], $tokens),
+    'public/css/app.css' => build_css(["$assets/css/bootstrap.min.css", "$assets/css/fida.css", "$assets/css/erp.css", "$assets/css/site.css", "$assets/css/sarafbook.css"], $tokens),
+    'public/css/app.rtl.css' => build_css(["$assets/css/bootstrap.rtl.min.css", "$assets/css/fida.css", "$assets/css/erp.css", "$assets/css/site.css", "$assets/css/sarafbook.css"], $tokens),
 ];
 
 /* ----------------------------------------------------------------- icon sprite */

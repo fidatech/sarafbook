@@ -44,7 +44,7 @@
                 <h2 class="sb-signin-title"><x-icon name="right-to-bracket" /> {{ __('Sign in to your Sarafi') }}</h2>
                 <p class="sb-signin-text">{{ __('Write the short name of your Sarafi. You will go to its own sign-in page.') }}</p>
                 @if (session('find_error'))
-                    <div class="rh-auth-error" role="alert"><x-icon name="triangle-exclamation" /> <span>{{ session('find_error') }}</span></div>
+                    <div class="auth-error" role="alert"><x-icon name="triangle-exclamation" /> <span>{{ session('find_error') }}</span></div>
                 @endif
                 <label class="form-label" for="sarafi">{{ __('Name of your Sarafi') }}</label>
                 <div class="input-group sb-signin-group" dir="ltr">

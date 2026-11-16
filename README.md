@@ -5,7 +5,7 @@ Pashto. One code base serves every Sarafi; each Sarafi has its own address and i
 database.
 
 - PHP 8.4, Laravel 13, MySQL 8, Blade. No Node step.
-- The look is the fida-admin template in the formal ("Rasmi") palette of Rahnuma.
+- The look is the fida-admin template as used in Fida Sarafi (blue and violet, light sidebar).
 - The business rules, tables and reports are those of the first SarafBook, unchanged.
 
 The first SarafBook (single Sarafi, earlier admin template) is kept on the branch `v1-legacy`.
