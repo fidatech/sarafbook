@@ -234,7 +234,7 @@
     <div class="card-body p-2">
         <div class="export-box">
             <div class="export-header">
-                {{-- <img src="{{ public_path('images/' . $setting->logo) }}" alt="{{ $setting->company_name }}"> --}}
+                {{-- <img src="{{ tenant_public_path('images/' . $setting->logo, true) }}" alt="{{ $setting->company_name }}"> --}}
                 <img src="{{ asset('images/' . $setting->logo) }}" alt="{{ $setting->company_name }}">
                 <div>
                     <h6 class="mb-0" style="font-size: 1rem;">{{ __('ui.account_summary') }}</h6>

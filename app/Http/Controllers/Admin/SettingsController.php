@@ -42,11 +42,11 @@ class SettingsController extends Controller
             $filename = $logo->getClientOriginalName();
 
             // Delete existing logo
-            if (isset($setting->logo) && $setting->logo != '' && file_exists(public_path('images/' . $setting->logo))) {
-                unlink(public_path('images/' . $setting->logo));
+            if (isset($setting->logo) && $setting->logo != '' && file_exists(tenant_public_path('images/' . $setting->logo))) {
+                unlink(tenant_public_path('images/' . $setting->logo));
             }
 
-            $logo->move(public_path('images'), $filename);
+            $logo->move(tenant_public_path('images'), $filename);
             $data['logo'] = $filename;
         }
 

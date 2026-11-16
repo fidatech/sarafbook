@@ -1,0 +1,62 @@
+/*
+ | SarafBook additions to the fida-admin template in the formal look of Rahnuma (rasmi.css).
+ | Only what the template does not already have. Colours come from the variables of the
+ | template, so the light and the dark mode both work.
+ */
+
+/* keyboard users jump over the menu */
+.skip-link { position: absolute; inset-inline-start: 12px; top: -60px; z-index: 3000; padding: 10px 16px; border-radius: 10px; background: var(--primary); color: #fff; font-weight: 700; text-decoration: none; transition: top .15s; }
+.skip-link:focus { top: 12px; color: #fff; }
+
+/* thin bar at the top while the next page is on its way */
+.nav-progress { position: fixed; top: 0; inset-inline: 0; height: 3px; z-index: 2100; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.nav-progress span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--gov-gold), var(--gov-gold-2)); }
+.nav-progress.is-active { opacity: 1; }
+.nav-progress.is-active span { width: 82%; transition: width 6s cubic-bezier(.1, .7, .1, 1); }
+
+/* the browser cross-fades from one page to the next where it can */
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: reduce) {
+    @view-transition { navigation: none; }
+    .nav-progress span { transition: none !important; }
+}
+
+/* sign in: one page heading, and the line of the navy panel */
+.rh-auth-card .rh-auth-heading { font-size: 27px; font-weight: 800; margin: 0 0 6px; color: var(--heading); }
+.rh-auth-side .rh-auth-title { color: #fff; font-size: clamp(28px, 3vw, 40px); font-weight: 800; line-height: 1.2; letter-spacing: -.6px; margin: 0 0 14px; }
+[dir="rtl"] .rh-auth-side .rh-auth-title { letter-spacing: 0; line-height: 1.55; }
+div.rh-auth-brand { cursor: default; }
+
+/* sidebar groups */
+.app-sidebar .menu-link .menu-arrow { font-size: 9px; }
+.app-sidebar .menu-link[aria-expanded="true"] .menu-arrow { transform: rotate(90deg); }
+.app-sidebar .menu-sublink.active { color: var(--sidebar-active); }
+.app-sidebar .menu-sublink.active::before { background: var(--gov-gold-2); border-color: var(--gov-gold-2); box-shadow: 0 0 0 3px rgba(227, 192, 79, .2); }
+
+/* visible focus everywhere */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.app-sidebar :focus-visible { outline-color: var(--gov-gold-2); }
+
+/*
+ | Pages carried over from the first SarafBook. They are plain Bootstrap with their own page
+ | styles; these few names came from the earlier template.
+ */
+.bg-label-primary { background: var(--primary-soft) !important; color: var(--primary) !important; }
+.bg-label-success { background: rgba(32, 178, 107, .14) !important; color: #15803d !important; }
+.bg-label-danger { background: rgba(239, 68, 68, .12) !important; color: #b91c1c !important; }
+.bg-label-warning { background: rgba(244, 165, 28, .16) !important; color: #92400e !important; }
+.bg-label-info { background: rgba(14, 165, 233, .14) !important; color: #0369a1 !important; }
+.bg-label-secondary { background: rgba(138, 146, 163, .16) !important; color: #4b5468 !important; }
+.bg-label-dark { background: rgba(35, 42, 58, .1) !important; color: #232a3a !important; }
+[data-bs-theme="dark"] .bg-label-success { color: #6ee7a8 !important; }
+[data-bs-theme="dark"] .bg-label-danger { color: #fca5a5 !important; }
+[data-bs-theme="dark"] .bg-label-warning { color: #fcd34d !important; }
+[data-bs-theme="dark"] .bg-label-info { color: #7dd3fc !important; }
+[data-bs-theme="dark"] .bg-label-secondary, [data-bs-theme="dark"] .bg-label-dark { color: #cbd2de !important; }
+.container-p-y { padding-block: 0 !important; }
+.app-content .container-xxl { max-width: none; padding-inline: 0; }
+.x-small { font-size: .72rem; }
+.mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: -.02em; }
+.select2-container--open { z-index: 2000; }
+.swal2-container { z-index: 2200; }
+.app-content .bi { line-height: 1; }

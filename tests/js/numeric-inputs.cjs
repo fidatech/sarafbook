@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const { JSDOM } = require('jsdom');
 const dom = new JSDOM('<body><input type="number" name="amount" value="12345.00"><input name="phone" value="001234"><input name="rate" inputmode="decimal"></body>', { runScripts: 'outside-only' });
 const { window } = dom;
-window.eval(fs.readFileSync('public/assets/offline/a3133eb07bfae987.js', 'utf8'));
+window.eval(fs.readFileSync('public/js/vendor/jquery.min.js', 'utf8'));
 const $ = window.jQuery;
 window.eval(fs.readFileSync('public/assets/js/numeric-inputs.js', 'utf8'));
 const amount = window.document.querySelector('[name="amount"]');

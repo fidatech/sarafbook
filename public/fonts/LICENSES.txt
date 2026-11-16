@@ -1,0 +1,7 @@
+Fonts in this folder and their licences
+
+Vazirmatn            SIL Open Font License 1.1   (c) The Vazirmatn Project Authors, github.com/rastikerdar/vazirmatn
+Noto Naskh Arabic    SIL Open Font License 1.1   (c) The Noto Project Authors, github.com/notofonts/arabic
+Noto Kufi Arabic     SIL Open Font License 1.1   (c) The Noto Project Authors, github.com/notofonts/arabic
+
+The two Noto fonts are cut down to the Arabic-script letters (U+0600-06FF, U+0750-077F) to keep them small.

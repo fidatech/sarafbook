@@ -127,7 +127,7 @@
             <div class="date-stamp">{{ $pdfLabel(__('transactions.generated_on')) }} {{ now()->format('Y-m-d H:i') }}</div>
 
             <div class="header">
-                <img src="{{ public_path('images/' . $setting->logo) }}" class="logo" alt="{{ $pdfLabel(__('transactions.logo')) }}">
+                <img src="{{ tenant_public_path('images/' . $setting->logo, true) }}" class="logo" alt="{{ $pdfLabel(__('transactions.logo')) }}">
                 <div class="company-info">
                     <div class="company-name">{{ $setting->company_name }}</div>
                     <div class="text-sm">{{ $pdfLabel(__('ui.blade_transaction_report')) }}</div>

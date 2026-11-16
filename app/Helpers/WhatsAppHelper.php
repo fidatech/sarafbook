@@ -9,6 +9,11 @@ class WhatsAppHelper
 {
     public static function sendMessage($to, $message): bool
     {
+        // switched off in the plan of this Sarafi, or no sender set up
+        if (! feature('whatsapp') || ! config('services.wasender.url') || ! config('services.wasender.key')) {
+            return false;
+        }
+
         if (empty($to) || empty($message)) {
             Log::warning('❌ WhatsApp message not sent: missing to/text', [
                 'to' => $to,
@@ -19,9 +24,9 @@ class WhatsAppHelper
 
         $response = retry(3, function () use ($to, $message) {
             return Http::timeout(15)->withHeaders([
-                'Authorization' => 'Bearer ' . env('WASENDER_API_KEY'),
+                'Authorization' => 'Bearer ' . config('services.wasender.key'),
                 'Content-Type'  => 'application/json',
-            ])->post(env('WASENDER_API_URL'), [
+            ])->post(config('services.wasender.url'), [
                 'to'   => $to,
                 'text' => $message,
             ]);

@@ -11,7 +11,7 @@ it('loads company settings once across page partials and refreshes for the next 
     DB::enableQueryLog();
     DB::flushQueryLog();
 
-    foreach (['layouts.admin.base', 'layouts.admin.menu', 'layouts.admin.navbar'] as $name) {
+    foreach (['layouts.admin.base', 'partials.sidebar', 'partials.topbar'] as $name) {
         $view = View::make($name);
         View::callComposer($view);
         expect($view->getData()['setting']->id)->toBe($setting->id);

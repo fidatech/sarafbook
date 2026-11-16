@@ -282,13 +282,13 @@ class TransactionsController extends Controller
 
                     $folder = 'attachments/' . Carbon::parse($date)->format('Y/m') . '/account_' . $accountId;
 
-                    if (!file_exists(public_path($folder))) {
-                        mkdir(public_path($folder), 0755, true);
+                    if (!file_exists(tenant_public_path($folder))) {
+                        mkdir(tenant_public_path($folder), 0755, true);
                     }
 
                     $name = time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
 
-                    $file->move(public_path($folder), $name);
+                    $file->move(tenant_public_path($folder), $name);
 
                     $attachmentPath = $folder . '/' . $name;
                 }
@@ -436,13 +436,13 @@ class TransactionsController extends Controller
 
                     $folder = 'attachments/' . Carbon::parse($date)->format('Y/m') . '/account_' . $accountId;
 
-                    if (!file_exists(public_path($folder))) {
-                        mkdir(public_path($folder), 0755, true);
+                    if (!file_exists(tenant_public_path($folder))) {
+                        mkdir(tenant_public_path($folder), 0755, true);
                     }
 
                     $name = time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
 
-                    $file->move(public_path($folder), $name);
+                    $file->move(tenant_public_path($folder), $name);
 
                     $attachmentPath = $folder . '/' . $name;
                 }
@@ -826,13 +826,13 @@ class TransactionsController extends Controller
 
                     $folder = 'attachments/' . date('Y/m') . '/account_' . $accountId;
 
-                    if (!file_exists(public_path($folder))) {
-                        mkdir(public_path($folder), 0755, true);
+                    if (!file_exists(tenant_public_path($folder))) {
+                        mkdir(tenant_public_path($folder), 0755, true);
                     }
 
                     $name = time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
 
-                    $file->move(public_path($folder), $name);
+                    $file->move(tenant_public_path($folder), $name);
 
                     $attachmentPath = $folder . '/' . $name;
                 }

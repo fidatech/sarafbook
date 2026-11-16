@@ -5,13 +5,9 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
-Route::middleware(['set_locale'])->group(function () {
+Route::middleware(['tenant', 'set_locale'])->group(function () {
     Route::get('/', function () {
-        if (auth()->check()) {
-            return view('welcome'); // Logged-in users
-        }
-
-        return redirect()->route('login'); // Guests
+        return auth()->check() ? redirect()->route('admin.dashboard') : redirect()->route('login');
     });
 
     Route::post('/logout-ping', function () {
@@ -34,18 +30,40 @@ Route::middleware(['set_locale'])->group(function () {
 
     // Locale switch route
     Route::get('/lang/{locale}', function ($locale) {
-        $available = ['en', 'fa', 'ps'];
+        $available = array_keys(config('app.locales'));
         if (in_array($locale, $available)) {
             session(['locale' => $locale]);
         }
         return redirect()->back();
     })->name('lang.switch');
 
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::middleware('auth')->group(function () {
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    });
 
     require __DIR__ . '/admin.php';
 });
 
-require __DIR__ . '/auth.php';
+Route::middleware(['tenant', 'set_locale'])->group(function () {
+    require __DIR__ . '/auth.php';
+
+    // Platform support signs in as the Sarafi's administrator through a short-lived signed link.
+    Route::get('/_platform/enter', [\App\Http\Controllers\TenantFileController::class, 'enter'])
+        ->middleware('signed')->name('tenant.enter');
+
+    // Uploaded files of the Sarafi keep the addresses they always had. The web server answers
+    // for real files in public/; anything else under these paths comes from the Sarafi's own folder.
+    Route::get('/images/{path}', [\App\Http\Controllers\TenantFileController::class, 'open'])
+        ->where('path', '.*')->defaults('folder', 'images')->name('tenant.file.image');
+    Route::middleware('auth')->group(function () {
+        Route::get('/attachments/{path}', [\App\Http\Controllers\TenantFileController::class, 'show'])
+            ->where('path', '.*')->defaults('folder', 'attachments');
+        Route::get('/assets/attachments/{path}', [\App\Http\Controllers\TenantFileController::class, 'show'])
+            ->where('path', '.*')->defaults('folder', 'assets/attachments');
+        Route::get('/storage/{path}', [\App\Http\Controllers\TenantFileController::class, 'disk'])
+            ->where('path', '.*');
+    });
+});
+

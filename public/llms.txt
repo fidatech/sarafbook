@@ -1,0 +1,11 @@
+# SarafBook
+
+> Bookkeeping for Sarafis (money exchange and hawala offices): customer accounts in every currency, the daily journal, currency exchange, remittances and reports. English, Dari and Pashto.
+
+Each Sarafi has its own address and its own database. Everything except the sign-in page needs a signed-in user of that Sarafi.
+
+- Sign in: /login (fields: username, password)
+- After sign-in the menu on the left lists every page; Ctrl+K opens the page search.
+- Forms use ordinary HTML fields with labels; lists are HTML tables.
+
+Made by Fida Technologies, Kabul: https://fida.af

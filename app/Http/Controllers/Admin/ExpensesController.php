@@ -202,7 +202,7 @@ class ExpensesController extends Controller
         if ($request->attachment != '') {
             $fileName = time() . '.' . request()->attachment->getClientOriginalExtension();
             $path = $fileName;
-            request()->attachment->move(public_path('assets/attachments'), $fileName);
+            request()->attachment->move(tenant_public_path('assets/attachments'), $fileName);
         } else {
             $path = $request->attachment;
         }
@@ -278,13 +278,13 @@ class ExpensesController extends Controller
 
         // Update attachment
         if ($request->attachment != '') {
-            if ($expense->attachment != '' && file_exists(public_path('assets/attachments/' . $expense->attachment))) {
-                unlink(public_path('assets/attachments/' . $expense->attachment));
+            if ($expense->attachment != '' && file_exists(tenant_public_path('assets/attachments/' . $expense->attachment))) {
+                unlink(tenant_public_path('assets/attachments/' . $expense->attachment));
             }
 
             $fileName = time() . '.' . request()->attachment->getClientOriginalExtension();
             $path = $fileName;
-            request()->attachment->move(public_path('assets/attachments'), $fileName);
+            request()->attachment->move(tenant_public_path('assets/attachments'), $fileName);
         } else {
             $path = $request->attachment;
         }

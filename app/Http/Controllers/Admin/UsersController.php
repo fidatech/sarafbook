@@ -40,6 +40,14 @@ class UsersController extends Controller
             'role' => 'required|exists:roles,name',
         ]);
 
+        // the plan of the Sarafi may limit the number of users
+        $maxUsers = tenant()?->maxUsers();
+        if ($maxUsers && User::count() >= $maxUsers) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'username' => __('Your plan allows :count users. Ask for a larger plan to add more.', ['count' => $maxUsers]),
+            ]);
+        }
+
         $user = new User();
         $user->name = $request->name;
         $user->username = $request->username;

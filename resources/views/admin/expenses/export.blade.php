@@ -98,7 +98,7 @@
 
             {{-- Header --}}
             <div class="header">
-                <img src="{{ public_path('images/' . $setting->logo) }}">
+                <img src="{{ tenant_public_path('images/' . $setting->logo, true) }}">
                 <div style="text-align:right;">
                     <div style="font-size:20px;font-weight:bold;color:#2563eb;">
                         {{ $setting->company_name }}

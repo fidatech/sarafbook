@@ -1,0 +1,47 @@
+# Class names and icons that the build cannot see in the views or scripts.
+# One or more per line. Icons are written as #s-name (solid) or #r-name (regular).
+
+# icons used from JavaScript (app.js)
+#s-sun #s-moon #s-file #s-arrow-right
+#s-circle-check #s-circle-xmark #s-circle-info #s-circle-question #s-triangle-exclamation
+#r-eye #r-eye-slash
+
+# toast colours are built in JavaScript as "is-" + type
+is-success is-danger is-warning is-info
+
+# icons of the sidebar menus (partials/sidebar.blade.php, named in arrays)
+#s-gauge-high #s-users #s-vault #s-right-left #s-book #s-coins #s-paper-plane #s-wallet
+#s-chart-column #s-users-gear #s-gear #s-building-columns #s-layer-group #s-clipboard-check #s-chevron-right
+
+# colours built in the views as "kpi-" / "avatar-soft-" / "badge-soft-" / "btn-light-" + tone
+kpi-blue kpi-green kpi-amber kpi-red kpi-violet
+avatar-soft-primary avatar-soft-success avatar-soft-purple avatar-soft-danger avatar-soft-warning avatar-soft-info
+badge-soft btn-soft-primary btn-soft-success btn-soft-warning btn-soft-danger btn-soft-info btn-soft-secondary btn-light-secondary
+primary success warning danger info secondary purple
+
+# colours the carried-over pages build in JavaScript ("bg-" + colour, "text-" + colour, ...)
+bg-primary bg-secondary bg-success bg-danger bg-warning bg-info bg-light bg-dark bg-white bg-transparent
+text-primary text-secondary text-success text-danger text-warning text-info text-light text-dark text-muted text-white text-body
+border-primary border-secondary border-success border-danger border-warning border-info
+btn-primary btn-secondary btn-success btn-danger btn-warning btn-info btn-light btn-dark btn-link
+btn-outline-primary btn-outline-secondary btn-outline-success btn-outline-danger btn-outline-warning btn-outline-info btn-outline-dark
+alert-primary alert-secondary alert-success alert-danger alert-warning alert-info alert-light alert-dark
+bg-label-primary bg-label-secondary bg-label-success bg-label-danger bg-label-warning bg-label-info bg-label-dark
+table-primary table-secondary table-success table-danger table-warning table-info table-light table-active
+badge rounded-pill spinner-border spinner-border-sm d-none d-block d-flex d-inline-block is-invalid is-valid invalid-feedback valid-feedback
+page-item page-link pagination active disabled fade show collapse collapsing collapsed
+tooltip tooltip-inner tooltip-arrow bs-tooltip-top bs-tooltip-bottom bs-tooltip-start bs-tooltip-end bs-tooltip-auto
+popover popover-header popover-body popover-arrow bs-popover-top bs-popover-bottom bs-popover-start bs-popover-end bs-popover-auto
+offcanvas offcanvas-start offcanvas-end offcanvas-top offcanvas-bottom offcanvas-backdrop offcanvas-header offcanvas-body offcanvas-title showing hiding
+toast toast-header toast-body toast-container dropdown-menu-end dropdown-menu-start dropup dropend dropstart
+modal-open modal-backdrop modal-static modal-dialog-scrollable
+form-control form-select form-check form-check-input form-check-label input-group input-group-text
+
+# set by the scripts on the page itself
+is-busy is-ready app-ready is-scrolled no-large-title sidebar-open is-active is-out
+table-cards table-scroll cell-primary cell-actions cell-long
+conditional-hidden
+
+# DataTables (Bootstrap 5 styling) builds its own rows, columns and pagination
+row col-sm-12 col-md-5 col-md-6 col-md-7 col-sm-6 justify-content-end justify-content-between justify-content-center align-items-center
+form-control-sm form-select-sm table-striped table-bordered table-hover table-sm table-responsive dt-buttons btn-group
