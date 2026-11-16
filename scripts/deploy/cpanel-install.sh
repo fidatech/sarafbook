@@ -52,8 +52,10 @@ cd "$APP"
 git log --oneline -1
 
 step "Packages"
-[ -f composer.phar ] || curl -fsS https://getcomposer.org/installer | "$PHP" -- --quiet
-"$PHP" composer.phar install --no-dev --optimize-autoloader --no-interaction --no-progress 2>&1 | tail -5
+# cPanel often switches allow_url_fopen off for the command line; Composer needs it
+[ -f composer.phar ] || curl -fsS https://getcomposer.org/installer | "$PHP" -d allow_url_fopen=On -- --quiet
+"$PHP" -d allow_url_fopen=On -d memory_limit=-1 composer.phar install --no-dev --optimize-autoloader --no-interaction --no-progress 2>&1 | tail -8
+[ -f vendor/autoload.php ] || { echo "The packages were not installed."; exit 1; }
 
 if [ "$FIRST" = 1 ]; then
     step "Settings"
