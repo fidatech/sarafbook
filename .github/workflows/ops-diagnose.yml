@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: Address to request first (optional)
+        description: Addresses to request first, separated by spaces (optional)
       errors:
         description: How many of the newest errors to show
         default: '3'

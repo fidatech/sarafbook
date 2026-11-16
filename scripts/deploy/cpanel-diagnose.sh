@@ -4,10 +4,14 @@
 set -Eeuo pipefail
 APP="$HOME/sarafbook"
 URL="${CHECK_URL:-}"
-if [ -n "$URL" ]; then
-    code=$(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}' -m 25 "$URL" || true)
-    echo "GET $URL: $code"
-fi
+STAMP=$(date '+%Y-%m-%d %H:%M:%S')
+for u in $URL; do
+    code=$(curl -s -o /tmp/sb-check.html -w '%{http_code} %{size_download}b -> %{redirect_url}' -m 25 "$u" || true)
+    title=$(grep -o '<title>[^<]*' /tmp/sb-check.html 2>/dev/null | head -1 | sed 's/<title>//' || true)
+    echo "GET $u: $code  ${title:0:80}"
+done
+rm -f /tmp/sb-check.html
+echo "(errors logged before $STAMP are older than these requests)"
 LOG=$(ls -t "$APP"/storage/logs/*.log 2>/dev/null | head -1)
 [ -n "$LOG" ] || { echo "No log file yet."; exit 0; }
 echo "== newest errors"
