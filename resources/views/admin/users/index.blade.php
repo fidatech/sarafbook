@@ -1,270 +1,162 @@
 @extends('layouts.admin.base')
-@section('title', __('access.users_title'))
-@section('css')
-    <link rel="stylesheet" href="{{ asset('assets/offline/ab1e55b05f962f8e.css') }}">
-@endsection
+@section('title', __('ui.users'))
+@section('modern', '1')
+
+{{-- The people who sign in to this Sarafi: role, status, and a pop-up to add or change them. --}}
+@php
+    $me = auth()->user();
+    $canCreate = $me->can('create users');
+    $canUpdate = $me->can('update users');
+    $canDelete = $me->can('delete users');
+    $filtered = $filters['q'] !== '' || $filters['role'] !== '' || $filters['status'] !== '';
+    $roleOptions = $roles->mapWithKeys(fn ($r) => [$r->name => \App\Support\AccessLabels::role($r->name)])->all();
+    $full = $maxUsers && $userCount >= $maxUsers;
+@endphp
+
 @section('content')
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">{{ __('ui.user_accounts') }}</h5>
-            <button class="btn btn-primary d-flex align-items-center gap-2" data-bs-toggle="offcanvas" data-bs-target="#offcanvasAddUser">
-                <i class="bi bi-plus-circle"></i>
-                <span>{{ __('ui.create_account') }}</span>
-            </button>
-        </div>
+<x-page-header :title="__('ui.users')" icon="users-gear" :subtitle="$maxUsers ? __(':count of :max users of your plan', ['count' => $userCount, 'max' => $maxUsers]) : __('The people who sign in to this Sarafi.')">
+    @can('view roles')
+        <a class="btn btn-outline-soft" href="{{ route('admin.roles.index') }}"><x-icon name="user-shield" class="me-1" /> {{ __('Roles') }}</a>
+    @endcan
+    @if ($canCreate)
+        <button class="btn btn-primary" type="button" data-modal-form="#userForm" @disabled($full) @if ($full) title="{{ __('Your plan allows :count users. Ask for a larger plan to add more.', ['count' => $maxUsers]) }}" @endif><x-icon name="user-plus" class="me-1" /> {{ __('Add user') }}</button>
+    @endif
+</x-page-header>
 
-        <div class="card-body">
+<div class="card">
+    <div class="card-body">
+        <form method="GET" class="list-tools" role="search" data-live="list">
+            <input type="search" class="form-control grow" name="q" value="{{ $filters['q'] }}" placeholder="{{ __('Name or username…') }}" aria-label="{{ __('ui.search') }}">
+            <select class="form-select" name="role" aria-label="{{ __('Role') }}">
+                <option value="">{{ __('All roles') }}</option>
+                @foreach ($roleOptions as $value => $text)<option value="{{ $value }}" @selected($filters['role'] === $value)>{{ $text }}</option>@endforeach
+            </select>
+            <select class="form-select" name="status" aria-label="{{ __('ui.status') }}">
+                <option value="">{{ __('Any status') }}</option>
+                <option value="active" @selected($filters['status'] === 'active')>{{ __('ui.active') }}</option>
+                <option value="off" @selected($filters['status'] === 'off')>{{ __('ui.deactivated') }}</option>
+            </select>
+            <a class="btn btn-light-secondary" href="{{ route('admin.users.index') }}" data-live-clear title="{{ __('Clear the filters') }}" aria-label="{{ __('Clear the filters') }}" @if (! $filtered) hidden @endif><x-icon name="filter-circle-xmark" /></a>
+        </form>
 
-            <div class="row row-cols-1 row-cols-md-3 g-4 mb-4 mt-2">
-                <div class="col">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
-                        <select class="form-select" id="account_type">
-                            <option value="">{{ __('ui.user_type') }}</option>
-                            <option value="admin">{{ __('ui.admin') }}</option>
-                            <option value="client">{{ __('ui.client') }}</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="col">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control" id="search" placeholder="{{ __('ui.search') }}...">
-                        <button class="btn btn-outline-secondary" type="button" id="search-btn">
-                            <i class="bi bi-arrow-right"></i>
-                        </button>
-                    </div>
-                </div>
-
+@fragment('list')
+<div data-live-part="list" data-filtered="{{ $filtered ? 1 : 0 }}">
+        @if ($users->isEmpty())
+            <div class="empty-state">
+                <div class="es-icon"><x-icon name="users-gear" /></div>
+                <h2 class="h3">{{ __('Nothing found') }}</h2>
             </div>
-
-            <div class="table-responsive">
-                <table class="table-bordered table-hover table text-center align-middle" id="yajra-datatable">
-                    <thead class="table-light">
+        @else
+            <div class="table-responsive data-wrap">
+                <table class="table w-100 mb-0 data-table">
+                    <thead>
                         <tr>
-                            <th>#</th>
-                            <th>{{ __('ui.account') }}</th>
-                            <th>{{ __('ui.username') }}</th>
-                            <th>{{ __('ui.type') }}</th>
-                            <th>{{ __('ui.permissions') }}</th>
-                            <th>{{ __('ui.status') }}</th>
-                            <th>{{ __('ui.created') }}</th>
-                            <th style="min-width: 120px;">{{ __('ui.manage') }}</th>
+                            <th scope="col">{{ __('User') }}</th>
+                            <th scope="col">{{ __('Role') }}</th>
+                            <th scope="col">{{ __('ui.status') }}</th>
+                            <th scope="col">{{ __('Since') }}</th>
+                            <th scope="col" class="text-end"><span class="visually-hidden">{{ __('ui.actions') }}</span></th>
                         </tr>
                     </thead>
+                    <tbody>
+                        @foreach ($users as $user)
+                            @php
+                                $roleName = $user->roles->first()?->name;
+                                $self = $user->id === $me->id;
+                                $fill = json_encode(['name' => $user->name, 'username' => $user->username, 'role' => $roleName, 'is_active' => (bool) $user->is_active], JSON_UNESCAPED_UNICODE);
+                            @endphp
+                            <tr>
+                                <td>
+                                    <div class="row-who">
+                                        <a href="{{ route('admin.users.show', $user->id) }}" @class(['avatar avatar-sm', 'avatar-soft-primary' => $user->is_active, 'avatar-soft-secondary' => ! $user->is_active]) aria-hidden="true" tabindex="-1">{{ initial($user->name) }}</a>
+                                        <div class="min-w-0">
+                                            <a class="row-name" href="{{ route('admin.users.show', $user->id) }}">{{ $user->name }}</a>
+                                            <div class="row-meta"><span dir="ltr">{{ '@'.$user->username }}</span>@if ($self)<span class="badge-soft info">{{ __('You') }}</span>@endif</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>@if ($roleName)<span class="badge-soft primary">{{ \App\Support\AccessLabels::role($roleName) }}</span>@else<span class="text-muted">—</span>@endif
+                                    <div class="row-meta">{{ __(':count permissions', ['count' => $user->permissions_count]) }}</div></td>
+                                <td>
+                                    @if ($user->is_active)
+                                        <span class="badge-soft success"><span class="dot"></span>{{ __('ui.active') }}</span>
+                                    @else
+                                        <span class="badge-soft secondary"><span class="dot"></span>{{ __('ui.deactivated') }}</span>
+                                    @endif
+                                </td>
+                                <td class="text-muted text-nowrap">{{ optional($user->created_at)->format('Y-m-d') }}</td>
+                                <td class="text-end text-nowrap">
+                                    <div class="act-group">
+                                        <a class="btn-act is-blue" href="{{ route('admin.users.show', $user->id) }}" title="{{ __('Permissions') }}" aria-label="{{ __('Permissions') }} — {{ $user->name }}">{!! ico('key') !!}</a>
+                                        @if ($canUpdate)
+                                            <button type="button" class="btn-act is-amber" title="{{ __('Edit') }}" aria-label="{{ __('Edit') }} {{ $user->name }}" data-modal-form="#userForm" data-fill="{{ $fill }}" data-action="{{ route('admin.users.update', $user->id) }}" data-method="PUT">{!! ico('pen') !!}</button>
+                                        @endif
+                                        @if ($canUpdate || $canDelete)
+                                            <div class="dropdown d-inline-block">
+                                                <button class="btn-act is-gray" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ __('More') }}" aria-label="{{ __('More') }}">{!! ico('ellipsis-vertical') !!}</button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    @if ($canUpdate)
+                                                        <li><button class="dropdown-item" type="button" data-modal-form="#passwordForm" data-action="{{ route('admin.users.update-password', $user->id) }}" data-method="PUT" data-fill="{{ json_encode(['who' => $user->name]) }}">{!! ico('lock', 'me-2') !!} {{ __('Change password') }}</button></li>
+                                                        @unless ($self)
+                                                            <li>
+                                                                <form method="POST" action="{{ route('admin.users.status', $user->id) }}">@csrf
+                                                                    <button class="dropdown-item" type="submit">{!! ico($user->is_active ? 'user-slash' : 'user-check', 'me-2') !!} {{ $user->is_active ? __('Switch off') : __('Switch on') }}</button>
+                                                                </form>
+                                                            </li>
+                                                        @endunless
+                                                    @endif
+                                                    @if ($canDelete && ! $self)
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li>
+                                                            <form method="POST" action="{{ route('admin.users.destroy', $user->id) }}" data-confirm="{{ __('Delete :name?', ['name' => $user->name]) }}" data-confirm-text="{{ __('They can no longer sign in. Their records stay.') }}" data-confirm-ok="{{ __('Delete') }}">
+                                                                @csrf @method('DELETE')
+                                                                <button class="dropdown-item text-danger" type="submit">{!! ico('trash', 'me-2') !!} {{ __('Delete') }}</button>
+                                                            </form>
+                                                        </li>
+                                                    @endif
+                                                </ul>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
                 </table>
             </div>
-
-        </div>
+            {{ $users->links('partials.pagination') }}
+        @endif
+</div>
+@endfragment
     </div>
+</div>
 
-    @include('admin.users.partials.create')
-    @include('admin.users.partials.edit')
+@if ($canCreate || $canUpdate)
+<x-form-modal id="userForm" :title="__('Add user')" :title-edit="__('Edit user')" :action="route('admin.users.store')">
+    <x-field modal="userForm" name="name" :label="__('Full name')" required maxlength="255" autocomplete="off" />
+    <x-field modal="userForm" name="username" :label="__('Username')" required maxlength="255" dir="ltr" autocomplete="off" autocapitalize="none" />
+    <div class="row g-3" data-only-new>
+        <x-field col="col-6" modal="userForm" name="password" type="password" :label="__('Password')" required minlength="6" autocomplete="new-password" :hint="__('At least 6 characters.')" />
+        <x-field col="col-6" modal="userForm" name="repeat_password" type="password" :label="__('Repeat the password')" required autocomplete="new-password" />
+    </div>
+    <x-field modal="userForm" name="role" type="select" :label="__('Role')" :options="$roleOptions" :empty="__('Choose…')" required :hint="__('The user gets the permissions of the role; you can change them one by one later.')" />
+    <x-field modal="userForm" name="is_active" type="switch" :label="__('Can sign in')" :value="true" />
+</x-form-modal>
 
+<x-form-modal id="passwordForm" :title="__('Change password')" :action="route('admin.users.index')">
+    <p class="text-muted"><span data-who></span></p>
+    <input type="hidden" name="who" value="">
+    <x-field modal="passwordForm" name="new_password" type="password" :label="__('New password')" required minlength="6" autocomplete="new-password" :hint="__('At least 6 characters.')" />
+    <x-field modal="passwordForm" name="new_password_confirmation" type="password" :label="__('Repeat the password')" required autocomplete="new-password" />
+</x-form-modal>
+@endif
 @endsection
 
-@section('js')
-    <script src="{{ asset('assets/offline/77055c2f37cc45eb.js') }}"></script>
-    <script src="{{ asset('assets/offline/56701b6c377f817a.js') }}"></script>
-
-    <script>
-        const usersSwal = Swal.mixin({confirmButtonText: @json(__('ui.blade_ok')), cancelButtonText: @json(__('ui.cancel'))});
-        $(function() {
-            const table = $('#yajra-datatable').DataTable({
-                language: @include('admin.users.partials.table-language'),
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: "{{ route('admin.users.fetch-users') }}",
-                    data: function(d) {
-                        d.account_type = $('#account_type').val();
-                        d.search_term = $('#search').val();
-                    }
-                },
-                columns: [{
-                        data: null,
-                        name: 'row_index',
-                        searchable: false,
-                        orderable: false,
-                        render: (data, type, row, meta) => meta.row + 1
-                    },
-                    {
-                        data: 'name_with_profile',
-                        name: 'users.name'
-                    },
-                    {
-                        data: 'username',
-                        name: 'users.username',
-                        render: data => `<span class="badge bg-label-primary">${data}</span>`
-                    },
-                    {
-                        data: 'account_type',
-                        name: 'users.account_type'
-                    },
-                    {
-                        data: 'total_permissions',
-                        name: 'users.total_permissions'
-                    },
-                    {
-                        data: 'is_active',
-                        name: 'users.is_active'
-                    },
-                    {
-                        data: 'created_at',
-                        name: 'users.created_at'
-                    },
-                    {
-                        data: 'actions',
-                        name: 'actions',
-                        orderable: false,
-                        searchable: false
-                    }
-                ],
-                order: [
-                    [2, 'asc']
-                ],
-                pageLength: 10,
-                searching: false,
-                lengthChange: false,
-                info: false
-            });
-
-            // Filters
-            $('#account_type, #search-btn').on('change click', () => table.draw());
-            $('#search').on('keyup', e => e.key === 'Enter' && table.draw());
-
-            // Prevent spaces in username
-            $('#account-username').on('input', function() {
-                this.value = this.value.replace(/\s/g, '');
-            });
-
-            // Password match validation
-            $('#account-password, #account-repeat-password').on('input', function() {
-                const pass = $('#account-password').val();
-                const repeat = $('#account-repeat-password').val();
-                const feedback = $('#password-feedback');
-                const submit = $('#submit-button');
-
-                if (!repeat) {
-                    feedback.html('');
-                    submit.prop('disabled', true);
-                    return;
-                }
-
-                if (pass === repeat) {
-                    feedback.html('<span class="text-success">{{ __('access.passwords_match') }}</span>');
-                    submit.prop('disabled', false);
-                } else {
-                    feedback.html('<span class="text-danger">{{ __('access.passwords_mismatch') }}</span>');
-                    submit.prop('disabled', true);
-                }
-            });
-        });
-    </script>
-    <script>
-        // Submit Edit Form
-        $(document).on('click', '.edit-user-btn', function() {
-            let userId = $(this).data('id');
-
-            $.get('/admin/users/' + userId + '/edit', function(res) {
-
-                $('#edit-user-id').val(res.user.id);
-                $('#edit-name').val(res.user.name);
-                $('#edit-username').val(res.user.username);
-                $('#edit-is-active').prop('checked', res.user.is_active);
-
-                if (res.role) {
-                    $('#edit-role').val(res.role);
-                }
-
-                let actionUrl = '/admin/users/' + userId;
-                $('#editUserForm').attr('action', actionUrl);
-
-                $('#offcanvasEditUser').offcanvas('show');
-            });
-        });
-
-        // ============================
-        // AJAX UPDATE — Edit User
-        // ============================
-        $('#editUserForm').on('submit', function(e) {
-            e.preventDefault();
-
-            let form = $(this);
-            let userId = $('#edit-user-id').val();
-            let actionUrl = '/admin/users/' + userId;
-
-            $.ajax({
-                url: actionUrl,
-                type: 'POST',
-                data: form.serialize(),
-                success: function(res) {
-
-                    // Close offcanvas
-                    let offcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasEditUser'));
-                    offcanvas.hide();
-
-                    // Reload datatable
-                    $('#yajra-datatable').DataTable().ajax.reload(null, false);
-
-                    usersSwal.fire({
-                        icon: 'success',
-                        title: '{{ __('ui.blade_updated_2') }}',
-                        text: '{{ __('ui.blade_user_updated_successfully') }}',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                },
-                error: function(xhr) {
-                    let message = @json(__('access.error_message'));
-
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        message = xhr.responseJSON.message;
-                    }
-
-                    usersSwal.fire({
-                        icon: 'error',
-                        title: '{{ __('ui.blade_error_2') }}',
-                        text: message
-                    });
-                }
-            });
-        });
-
-        // Delete User
-        $(document).on('click', '.delete-user-btn', function() {
-            const id = $(this).data('id');
-            usersSwal.fire({
-                title: '{{ __('ui.are_you_sure') }}',
-                text: '{{ __('ui.blade_this_will_delete_the_user_permanently') }}',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: '{{ __('ui.blade_yes_delete_it_2') }}'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: `/admin/users/${id}`,
-                        type: 'DELETE',
-                        data: {
-                            _token: '{{ csrf_token() }}'
-                        },
-                        success: function(response) {
-                            $('#yajra-datatable').DataTable().ajax.reload();
-                            usersSwal.fire(@json(__('access.deleted_title')), response.message, 'success');
-                        },
-                        error: function(xhr) {
-                            let errorMessage = @json(__('access.error_message'));
-
-                            if (xhr.responseJSON && xhr.responseJSON.message) {
-                                errorMessage = xhr.responseJSON.message;
-                            }
-
-                            usersSwal.fire(@json(__('access.error_title')), errorMessage, 'error');
-                        }
-                    });
-                }
-            });
-        });
-    </script>
-@endsection
+@push('scripts')
+<script>
+document.addEventListener('erp:form-open', function (e) {
+    var who = e.target.querySelector('[data-who]');
+    if (who) who.textContent = (e.detail.data && e.detail.data.who) || '';
+});
+</script>
+@endpush

@@ -12,9 +12,11 @@ class PermissionsController extends Controller
 {
     public function index()
     {
-        $roles = Role::all();
-        $permissions = Permission::all()->sortBy('name');
-        return view('admin.permissions.index', compact('roles', 'permissions'));
+        $roles = Role::with('permissions:id,name')->withCount('users')->orderBy('id')->get();
+        $permissions = Permission::orderBy('id')->get();
+        $role = $roles->firstWhere('id', (int) request()->query('role')) ?? $roles->first();
+
+        return view('admin.permissions.index', compact('roles', 'permissions', 'role'));
     }
 
     public function data(Request $request)
@@ -84,7 +86,12 @@ class PermissionsController extends Controller
         $role = Role::findOrFail($request->role_id);
         $role->syncPermissions($request->permissions ?? []);
 
-        return redirect()->route('admin.permissions.index')->with('success', __('access.role_permissions_updated', ['role' => \App\Support\AccessLabels::role($role->name)]));
+        // the users of the role get what the role now allows
+        foreach ($role->users as $member) {
+            $member->syncPermissions($role->permissions);
+        }
+
+        return redirect()->route('admin.permissions.index', ['role' => $role->id])->with('success', __('access.role_permissions_updated', ['role' => \App\Support\AccessLabels::role($role->name)]));
     }
 
     public function rolePermissionsJson($roleId)

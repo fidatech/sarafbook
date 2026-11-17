@@ -8,10 +8,28 @@ use Spatie\Activitylog\Models\Activity;
 
 class AuditLogController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = \App\Models\User::select('id', 'name')->get();
-        return view('admin.audit.index', compact('users'));
+        $users = \App\Models\User::select('id', 'name')->where('account_type', 'admin')->orderBy('name')->get();
+        $models = Activity::query()->select('log_name')->distinct()->whereNotNull('log_name')->orderBy('log_name')->pluck('log_name');
+        $filters = [
+            'user_id' => $request->integer('user_id') ?: null,
+            'model' => (string) $request->query('model', ''),
+            'event' => (string) $request->query('event', ''),
+            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('date')) ? $request->query('date') : '',
+            'q' => trim((string) $request->query('q', '')),
+        ];
+
+        $logs = Activity::query()->with('causer:id,name,username')
+            ->when($filters['user_id'], fn ($q, $v) => $q->where('causer_id', $v))
+            ->when($filters['model'] !== '', fn ($q) => $q->where('log_name', $filters['model']))
+            ->when($filters['event'] !== '', fn ($q) => $q->where('event', $filters['event']))
+            ->when($filters['date'] !== '', fn ($q) => $q->whereDate('created_at', $filters['date']))
+            ->when($filters['q'] !== '', fn ($q) => $q->where('description', 'like', '%'.$filters['q'].'%'))
+            ->orderByDesc('id')
+            ->paginate(30)->withQueryString();
+
+        return page('admin.audit.index', compact('users', 'models', 'filters', 'logs'));
     }
 
     public function data(Request $request)

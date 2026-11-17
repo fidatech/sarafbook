@@ -24,20 +24,25 @@ class CurrenciesController extends Controller
     /** Currencies that money was recorded in: they can be switched off but not deleted. */
     private function usedCurrencyIds(): array
     {
-        $ids = [];
-        foreach (['transactions' => ['currency_id'], 'account_balances' => ['currency_id'], 'exchanges' => ['from_currency_id', 'to_currency_id'],
+        $checks = [];
+        foreach (['account_balances' => ['currency_id'], 'transactions' => ['currency_id'], 'exchanges' => ['from_currency_id', 'to_currency_id'],
             'remittances' => ['currency_id'], 'expenses' => ['currency_id']] as $table => $columns) {
-            if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
-                continue;
-            }
             foreach ($columns as $column) {
                 if (\Illuminate\Support\Facades\Schema::hasColumn($table, $column)) {
-                    $ids = array_merge($ids, DB::table($table)->distinct()->pluck($column)->all());
+                    $checks[] = [$table, $column];
                 }
             }
         }
+        // one small query per currency and table, each stopping at the first record it finds
+        return Currency::query()->pluck('id')->filter(function ($id) use ($checks) {
+            foreach ($checks as [$table, $column]) {
+                if (DB::table($table)->where($column, $id)->exists()) {
+                    return true;
+                }
+            }
 
-        return array_values(array_unique(array_map('intval', array_filter($ids))));
+            return false;
+        })->map(fn ($id) => (int) $id)->values()->all();
     }
 
     public function fetch(Request $request)

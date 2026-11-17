@@ -123,7 +123,8 @@ class TenantsSmoke extends Command
                     $status = $response->getStatusCode();
                     $session = $request->hasSession() ? $request->session() : null;
                     $flash = $session ? ($session->get('success') ?? $session->get('error')) : null;
-                    $errors = $session?->get('errors')?->all() ?? [];
+                    $bag = $session?->get('errors');
+                    $errors = is_array($bag) ? \Illuminate\Support\Arr::flatten($bag) : ($bag?->all() ?? []);
                     $e = $response->exception ?? null;
                     if ($status >= 400 || $errors) {
                         $failed++;

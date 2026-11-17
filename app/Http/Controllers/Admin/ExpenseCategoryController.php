@@ -11,7 +11,9 @@ class ExpenseCategoryController extends Controller
 {
     public function index()
     {
-        return view('admin.expense-categories.index');
+        $categories = ExpenseCategory::query()->withCount('expenses')->orderBy('name')->get();
+
+        return page('admin.expense-categories.index', compact('categories'));
     }
 
     public function data()
@@ -74,7 +76,7 @@ class ExpenseCategoryController extends Controller
             'created'
         );
 
-        return response()->json(['message' => __('administration.category_created')]);
+        return done(__('administration.category_created'));
     }
 
     public function update(Request $request, ExpenseCategory $expenseCategory)
@@ -118,11 +120,14 @@ class ExpenseCategoryController extends Controller
             );
         }
 
-        return response()->json(['message' => __('administration.category_updated')]);
+        return done(__('administration.category_updated'));
     }
 
     public function destroy(ExpenseCategory $expenseCategory)
     {
+        if ($expenseCategory->expenses()->exists()) {
+            return done(__('This category has expenses, so it cannot be deleted.'), null, false);
+        }
         $name = $expenseCategory->name;
 
         $expenseCategory->delete();
@@ -137,6 +142,6 @@ class ExpenseCategoryController extends Controller
             'deleted'
         );
 
-        return response()->json(['message' => __('administration.category_deleted')]);
+        return done(__('administration.category_deleted'));
     }
 }

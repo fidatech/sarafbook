@@ -12,25 +12,19 @@ class AccountSubCategoriesController extends Controller
 {
     public function index(Request $request)
     {
-        if ($request->ajax()) {
-            $query = AccountSubCategory::with('accountCategory');
+        $categories = AccountCategory::orderBy('id')->get();
+        $category = $request->integer('category_id') ?: null;
+        $search = trim((string) $request->query('q', ''));
+        $subCategories = AccountSubCategory::query()->with('accountCategory')->withCount('accounts')
+            ->when($category, fn ($q) => $q->where('account_category_id', $category))
+            ->when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+            ->orderBy('account_category_id')->orderBy('id')->get();
 
-            if ($request->has('category_id') && $request->category_id != '') {
-                $query->where('account_category_id', $request->category_id);
-            }
-
-            return DataTables::of($query)
-                ->addIndexColumn()
-                ->addColumn('category', fn($row) => $row->accountCategory->name ?? '-')
-                ->addColumn('actions', fn($row) => view('admin.account-sub-categories.partials.actions', compact('row'))->render())
-                ->rawColumns(['actions'])
-                ->make(true);
-        }
-
-        $categories = AccountCategory::orderBy('name')->get();
-        return view('admin.account-sub-categories.index', compact('categories'));
+        return page('admin.account-sub-categories.index', [
+            'categories' => $categories, 'subCategories' => $subCategories,
+            'filters' => ['q' => $search, 'category_id' => $category],
+        ]);
     }
-
 
     public function store(Request $request)
     {
@@ -58,7 +52,7 @@ class AccountSubCategoriesController extends Controller
             'created'
         );
 
-        return response()->json(['success' => true]);
+        return done(__('Account type added.'));
     }
 
 
@@ -132,13 +126,17 @@ class AccountSubCategoriesController extends Controller
             );
         }
 
-        return response()->json(['success' => true]);
+        return done(__('Saved.'));
     }
 
 
     public function destroy($id)
     {
-        $subcategory = AccountSubCategory::findOrFail($id);
+        $subcategory = AccountSubCategory::withCount('accounts')->findOrFail($id);
+        // deleting a type would delete every account of it (and their records), so a type in use stays
+        if ($subcategory->accounts_count > 0) {
+            return done(__('This account type has accounts, so it cannot be deleted.'), null, false);
+        }
 
         $name = $subcategory->name;
         $categoryName = $subcategory->accountCategory->name ?? '-';
@@ -157,6 +155,6 @@ class AccountSubCategoriesController extends Controller
             'deleted'
         );
 
-        return response()->json(['success' => true]);
+        return done(__('Deleted.'));
     }
 }

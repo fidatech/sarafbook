@@ -157,6 +157,7 @@ Route::middleware(['auth'])->prefix('admin')->as('admin.')->group(function () {
         Route::get('/fetch', 'fetchUsers')->name('fetch-users');
         Route::resource('/', UsersController::class)->parameters(['' => 'id']);
         Route::get('/{id}/update-status', 'updateStatus')->name('update-status');
+        Route::post('/{id}/status', 'updateStatus')->name('status');
         Route::put('/{id}/update-password', 'updatePassword')->name('update-password');
         Route::post('/{id}/assign-permissions', 'assignPermissions')->name('assign-permissions');
         Route::post('/{id}/update-permissions', 'updatePermissions')->name('update-permissions');

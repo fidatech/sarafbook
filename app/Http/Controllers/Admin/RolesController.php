@@ -11,8 +11,8 @@ class RolesController extends Controller
 {
     public function index()
     {
-        $roles = Role::with('permissions')->get();
-        $permissions = Permission::all();
+        $roles = Role::with('permissions:id,name')->withCount('users')->orderBy('id')->get();
+        $permissions = Permission::orderBy('id')->get();
 
         return view('admin.roles.index', compact('roles', 'permissions'));
     }
@@ -39,14 +39,27 @@ class RolesController extends Controller
             'permissions' => 'nullable|array'
         ]);
 
-        $role->update(['name' => $validated['name']]);
+        // the administrator keeps its name, so the checks that look for it keep working
+        if (strtolower($role->name) !== 'admin') {
+            $role->update(['name' => $validated['name']]);
+        }
         $role->syncPermissions($validated['permissions'] ?? []);
+        // users of the role get what the role now allows (permissions are kept on each user too)
+        foreach ($role->users as $member) {
+            $member->syncPermissions($role->permissions);
+        }
 
         return redirect()->route('admin.roles.index')->with('success', __('access.role_updated'));
     }
 
     public function destroy(Role $role)
     {
+        if (strtolower($role->name) === 'admin') {
+            return back()->with('error', __('The administrator role cannot be deleted.'));
+        }
+        if ($role->users()->exists()) {
+            return back()->with('error', __('Users have this role. Give them another role first.'));
+        }
         $role->delete();
         return redirect()->route('admin.roles.index')->with('success', __('access.role_deleted'));
     }

@@ -11,21 +11,23 @@ use Illuminate\Support\Facades\DB;
 class ExchangeRateController extends Controller
 {
     /**
-     * Show form + latest rates
+     * The rates of one day (today unless another is chosen) and the form to set one.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $currencies = Currency::orderBy('code')->get();
+        $currencies = Currency::where('is_active', true)->orderByRaw("CASE WHEN code = 'USD' THEN 0 ELSE 1 END")->orderBy('id')->get();
+        $date = rescue(fn () => \Illuminate\Support\Carbon::parse((string) $request->query('date', ''))->toDateString(), now()->toDateString(), false);
+        if (! $request->filled('date')) {
+            $date = now()->toDateString();
+        }
 
-        $today = now()->toDateString();
-
-        $rates = ExchangeRate::with(['fromCurrency', 'toCurrency'])
-            ->whereDate('date', $today)
-            ->orderByDesc('date')
+        $rates = ExchangeRate::with(['fromCurrency', 'toCurrency', 'creator:id,username'])
+            ->whereDate('date', $date)
             ->orderByDesc('id')
             ->get();
+        $days = ExchangeRate::query()->selectRaw('DATE(date) AS d')->groupBy('d')->orderByDesc('d')->limit(14)->pluck('d');
 
-        return view('admin.exchange_rates.index', compact('currencies', 'rates'));
+        return page('admin.exchange_rates.index', compact('currencies', 'rates', 'date', 'days'));
     }
 
     /**
@@ -96,6 +98,10 @@ class ExchangeRateController extends Controller
 
             $rate->load(['fromCurrency', 'toCurrency']);
 
+            if (! $request->expectsJson()) {
+                return redirect()->route('admin.exchange-rates.index', ['date' => $validated['date']])->with('success', __('exchange_rates.saved'));
+            }
+
             return response()->json([
                 'status' => true,
                 'message' => __('exchange_rates.saved'),
@@ -105,11 +111,9 @@ class ExchangeRateController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'status' => false,
-                'message' => __('exchange_rates.save_failed'),
-                'error' => $e->getMessage(),
-            ], 500);
+            report($e);
+
+            return done(__('exchange_rates.save_failed'), null, false, 500);
         }
     }
 
@@ -121,9 +125,6 @@ class ExchangeRateController extends Controller
         $rate = ExchangeRate::findOrFail($id);
         $rate->delete();
 
-        return response()->json([
-            'status' => true,
-            'message' => __('exchange_rates.deleted'),
-        ]);
+        return done(__('exchange_rates.deleted'));
     }
 }

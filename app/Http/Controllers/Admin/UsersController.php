@@ -16,11 +16,27 @@ use Illuminate\Support\Str;
 class UsersController extends Controller
 {
 
-    public function index()
+    public function index(Request $request)
     {
-        $roles = Role::all();
+        $roles = Role::orderBy('id')->get();
+        $search = trim((string) $request->query('q', ''));
+        $role = (string) $request->query('role', '');
+        $status = in_array($request->query('status'), ['active', 'off'], true) ? $request->query('status') : '';
 
-        return view('admin.users.index', compact('roles'));
+        $users = User::query()->with('roles:id,name')->withCount('permissions')
+            ->where('account_type', 'admin')
+            ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('username', 'like', "%{$search}%")->orWhere('name', 'like', "%{$search}%")))
+            ->when($role !== '', fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', $role)))
+            ->when($status !== '', fn ($q) => $q->where('is_active', $status === 'active'))
+            ->orderByDesc('is_active')->orderBy('id')
+            ->paginate(25)->withQueryString();
+
+        return page('admin.users.index', [
+            'users' => $users, 'roles' => $roles,
+            'filters' => ['q' => $search, 'role' => $role, 'status' => $status],
+            'maxUsers' => tenant()?->maxUsers(),
+            'userCount' => User::where('account_type', 'admin')->count(),
+        ]);
     }
     /**
      * Show the form for creating a new resource.
@@ -70,8 +86,9 @@ class UsersController extends Controller
 
     public function show(string $id)
     {
-        $user = User::with('permissions')->findOrFail($id);
-        $allPermissions = Permission::all(); // Make sure this is included
+        $user = User::with('permissions', 'roles.permissions')->findOrFail($id);
+        $allPermissions = Permission::orderBy('id')->get();
+
         return view('admin.users.show', compact('user', 'allPermissions'));
     }
 
@@ -108,7 +125,7 @@ class UsersController extends Controller
         // Sync permissions automatically from role
         $user->syncPermissions($newRole->permissions);
 
-        return response()->json(['message' => __('access.user_updated')]);
+        return done(__('access.user_updated'));
     }
 
 
@@ -119,9 +136,7 @@ class UsersController extends Controller
 
         // Prevent deleting the currently authenticated user
         if (auth()->id() == $user->id) {
-            return response()->json([
-                'message' => __('access.own_account'),
-            ], 403);
+            return done(__('access.own_account'), null, false, 403);
         }
 
         // Check for protected roles
@@ -132,22 +147,23 @@ class UsersController extends Controller
                 $role = \Spatie\Permission\Models\Role::where('name', $roleName)->first();
 
                 if ($role && $role->users()->count() <= 1) {
-                    return response()->json([
-                        'message' => __('access.last_role_user', ['role' => \App\Support\AccessLabels::role($roleName)]),
-                    ], 403);
+                    return done(__('access.last_role_user', ['role' => \App\Support\AccessLabels::role($roleName)]), null, false, 403);
                 }
             }
         }
 
         $user->delete();
 
-        return response()->json(['message' => __('access.user_deleted')]);
+        return done(__('access.user_deleted'));
     }
 
     public function updateStatus(string $id)
     {
         $user = User::find($id);
 
+        if ($user && $user->id === auth()->id()) {
+            return back()->with('error', __('You cannot switch off your own account.'));
+        }
         if ($user) {
             $user->is_active = $user->is_active ? 0 : 1;
             $user->save();
@@ -160,6 +176,10 @@ class UsersController extends Controller
 
     public function updatePassword(Request $request, string $id)
     {
+        $request->validate([
+            'new_password' => 'required|string|min:6',
+            'new_password_confirmation' => 'required|same:new_password',
+        ]);
         $user = User::find($id);
         if ($user) {
             $user->password = Hash::make($request->new_password);

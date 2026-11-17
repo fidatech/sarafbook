@@ -14,6 +14,11 @@ class ExchangeRate extends Model
         'created_by',
     ];
 
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function fromCurrency()
     {
         return $this->belongsTo(Currency::class, 'from_currency_id');

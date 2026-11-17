@@ -1,200 +1,77 @@
 @extends('layouts.admin.base')
-@section('title', __('administration.expense_categories'))
+@section('title', __('ui.expense_categories'))
+@section('modern', '1')
 
-@section('css')
-<link rel="stylesheet"
-      href="{{ asset('assets/offline/ab1e55b05f962f8e.css') }}">
-<style>
-    .offcanvas-header .btn-close { margin: 0; }
-</style>
-@endsection
+{{-- Expense categories: rent, salaries, … A category with expenses cannot be deleted. --}}
+@php
+    $canCreate = auth()->user()->can('create expense categories');
+    $canUpdate = auth()->user()->can('update expense categories');
+    $canDelete = auth()->user()->can('delete expense categories');
+@endphp
 
 @section('content')
+<x-page-header :title="__('ui.expense_categories')" icon="receipt" :subtitle="__('Groups for your expenses, so the reports can add them up.')">
+    @if ($canCreate)
+        <button class="btn btn-primary" type="button" data-modal-form="#expenseCategoryForm"><x-icon name="plus" class="me-1" /> {{ __('Add category') }}</button>
+    @endif
+</x-page-header>
 
-<div class="card shadow-sm border">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">{{ __('ui.expense_categories') }}</h5>
-        @can('create expense categories')
-        <button class="btn btn-sm btn-primary" data-bs-toggle="offcanvas"
-                data-bs-target="#offcanvasExpenseCategoryForm">
-            <i class="bi bi-plus-circle me-2"></i> {{ __('ui.add_category') }}
-        </button>
-        @endcan
-    </div>
-
-    <div class="card-body p-4">
-        <table id="expenseCategoryTable" class="table table-bordered table-hover table-striped w-100">
-            <thead class="table-light">
-                <tr>
-                    <th style="width:60px;">#</th>
-                    <th>{{ __('ui.name') }}</th>
-                    <th>{{ __('ui.description') }}</th>
-                    <th style="width:120px;">{{ __('ui.actions') }}</th>
-                </tr>
-            </thead>
-        </table>
+<div class="card">
+    <div class="card-body">
+        @if ($categories->isEmpty())
+            <div class="empty-state">
+                <div class="es-icon"><x-icon name="receipt" /></div>
+                <h2 class="h3">{{ __('No category yet') }}</h2>
+                @if ($canCreate)
+                    <p>{{ __('Add categories like rent or salaries.') }}</p>
+                    <button class="btn btn-primary" type="button" data-modal-form="#expenseCategoryForm"><x-icon name="plus" class="me-1" /> {{ __('Add category') }}</button>
+                @endif
+            </div>
+        @else
+            <div class="table-responsive data-wrap">
+                <table class="table w-100 mb-0 data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">{{ __('ui.name') }}</th>
+                            <th scope="col">{{ __('ui.description') }}</th>
+                            <th scope="col" class="is-num">{{ __('Expenses') }}</th>
+                            <th scope="col" class="text-end"><span class="visually-hidden">{{ __('ui.actions') }}</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($categories as $category)
+                            <tr>
+                                <td><span class="row-name">{{ $category->name }}</span></td>
+                                <td class="text-muted">{{ $category->description ?: '—' }}</td>
+                                <td class="is-num">{{ number_format($category->expenses_count) }}</td>
+                                <td class="text-end text-nowrap">
+                                    <div class="act-group">
+                                        @if ($canUpdate)
+                                            <button type="button" class="btn-act is-amber" title="{{ __('Edit') }}" aria-label="{{ __('Edit') }} {{ $category->name }}" data-modal-form="#expenseCategoryForm"
+                                                    data-fill="{{ json_encode(['name' => $category->name, 'description' => $category->description], JSON_UNESCAPED_UNICODE) }}"
+                                                    data-action="{{ route('admin.expense-categories.update', $category->id) }}" data-method="PUT">{!! ico('pen') !!}</button>
+                                        @endif
+                                        @if ($canDelete && $category->expenses_count === 0)
+                                            <form method="POST" action="{{ route('admin.expense-categories.destroy', $category->id) }}" class="d-inline" data-confirm="{{ __('Delete :name?', ['name' => $category->name]) }}" data-confirm-ok="{{ __('Delete') }}">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="btn-act is-red" title="{{ __('Delete') }}" aria-label="{{ __('Delete') }} {{ $category->name }}">{!! ico('trash') !!}</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
     </div>
 </div>
 
-<!-- Offcanvas Form -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasExpenseCategoryForm">
-    <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="expenseCategoryFormTitle">{{ __('ui.new_expense_category') }}</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"
-                aria-label="{{ __('ui.close') }}"></button>
-    </div>
-
-    <div class="offcanvas-body">
-        <form id="expenseCategoryForm">
-
-            @csrf
-            <input type="hidden" id="formMethod" value="POST">
-            <input type="hidden" id="expenseCategoryId">
-
-            <div class="mb-3">
-                <label class="form-label">{{ __('ui.name') }} *</label>
-                <input type="text" id="name" name="name"
-                       class="form-control" required>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">{{ __('ui.description') }}</label>
-                <textarea id="description" name="description"
-                          class="form-control" rows="3"></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-primary w-100">
-                {{ __('ui.save') }}
-            </button>
-        </form>
-    </div>
-</div>
-@endsection
-
-@section('js')
-<script src="{{ asset('assets/offline/77055c2f37cc45eb.js') }}"></script>
-<script src="{{ asset('assets/offline/56701b6c377f817a.js') }}"></script>
-
-<script>
-const administrationSwal = Swal.mixin({confirmButtonText: @json(__('ui.blade_ok')), cancelButtonText: @json(__('ui.cancel'))});
-$(function () {
-
-    // ===============================
-    // DATATABLE
-    // ===============================
-    let table = $('#expenseCategoryTable').DataTable({
-                language: @include('admin.settings.partials.table-language'),
-        processing: true,
-        serverSide: true,
-        ajax: "{{ route('admin.expense-categories.data') }}",
-        columns: [
-            { data: 'DT_RowIndex', orderable:false, searchable:false },
-            { data: 'name', name:'name' },
-            { data: 'description', name:'description' },
-            { data: 'actions', orderable:false, searchable:false }
-        ]
-    });
-
-
-    // ===============================
-    // OPEN CREATE FORM
-    // ===============================
-    const offcanvas = new bootstrap.Offcanvas('#offcanvasExpenseCategoryForm');
-
-    function resetForm() {
-        $('#expenseCategoryForm')[0].reset();
-        $('#formMethod').val('POST');
-        $('#expenseCategoryId').val('');
-        $('#expenseCategoryFormTitle').text("{{ __('ui.add_expense_category') }}");
-    }
-
-    $('#offcanvasExpenseCategoryForm').on('hidden.bs.offcanvas', resetForm);
-
-
-    // ===============================
-    // EDIT
-    // ===============================
-    $(document).on('click', '.edit-btn', function () {
-
-        $('#expenseCategoryFormTitle').text("{{ __('ui.edit_expense_category') }}");
-
-        $('#formMethod').val('PUT');
-        $('#expenseCategoryId').val($(this).data('id'));
-
-        $('#name').val($(this).data('name'));
-        $('#description').val($(this).data('description'));
-
-        offcanvas.show();
-    });
-
-
-    // ===============================
-    // CREATE / UPDATE SUBMIT
-    // ===============================
-    $('#expenseCategoryForm').submit(function (e) {
-        e.preventDefault();
-
-        let id = $('#expenseCategoryId').val();
-        let method = $('#formMethod').val();
-        let url = id
-            ? `/admin/expense-categories/${id}`
-            : `{{ route('admin.expense-categories.store') }}`;
-
-        $.ajax({
-            url: url,
-            method: 'POST',
-            data: $(this).serialize() + '&_method=' + method,
-            success: function (res) {
-                administrationSwal.fire({
-                    icon: 'success',
-                    title: res.message,
-                    timer: 1400,
-                    showConfirmButton: false
-                });
-
-                offcanvas.hide();
-                table.ajax.reload();
-            }
-        });
-    });
-
-
-    // ===============================
-    // DELETE
-    // ===============================
-    $(document).on('click', '.delete-btn', function () {
-        let id = $(this).data('id');
-
-        administrationSwal.fire({
-            title: "{{ __('ui.delete_title') }}",
-            text: "{{ __('ui.delete_confirm') }}",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "{{ __('ui.delete') }}"
-        }).then((result) => {
-            if (!result.isConfirmed) return;
-
-            $.ajax({
-                url: `/admin/expense-categories/${id}`,
-                method: 'POST',
-                data: {
-                    _token: "{{ csrf_token() }}",
-                    _method: "DELETE"
-                },
-                success: function (res) {
-                    administrationSwal.fire({
-                        icon: 'success',
-                        title: res.message,
-                        timer: 1400,
-                        showConfirmButton: false
-                    });
-
-                    table.ajax.reload();
-                }
-            });
-        });
-    });
-
-});
-</script>
+@if ($canCreate || $canUpdate)
+<x-form-modal id="expenseCategoryForm" :title="__('Add category')" :title-edit="__('Edit category')" :action="route('admin.expense-categories.store')">
+    <x-field modal="expenseCategoryForm" name="name" :label="__('ui.name')" required maxlength="255" />
+    <x-field modal="expenseCategoryForm" name="description" type="textarea" :label="__('ui.description')" />
+</x-form-modal>
+@endif
 @endsection

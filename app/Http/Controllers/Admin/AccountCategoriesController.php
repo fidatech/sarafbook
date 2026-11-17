@@ -12,8 +12,13 @@ class AccountCategoriesController extends Controller
 {
     public function index()
     {
-        $accountCategories = AccountCategory::all();
-        return view('admin.account-categories.index', compact('accountCategories'));
+        $categories = AccountCategory::query()->withCount('subCategories')->orderBy('id')->get();
+        $accounts = \App\Models\Account::query()
+            ->join('account_sub_categories as s', 's.id', '=', 'accounts.account_sub_category_id')
+            ->groupBy('s.account_category_id')->selectRaw('s.account_category_id, COUNT(*) AS n')
+            ->pluck('n', 's.account_category_id');
+
+        return page('admin.account-categories.index', compact('categories', 'accounts'));
     }
 
     public function data()
@@ -57,16 +62,14 @@ class AccountCategoriesController extends Controller
             'created'
         );
 
-        return back()->with('success', __('administration.account_category_created'));
+        return done(__('administration.account_category_created'));
     }
 
 
     public function update(Request $request, $id)
     {
-        try {
-
             $request->validate([
-                'name' => 'required|string|max:255',
+                'name' => 'required|string|max:255|unique:account_categories,name,'.$id,
                 'code_prefix' => 'required|string|max:10',
                 'bi_icon' => 'nullable|string',
                 'bi_icon_color' => 'nullable|string'
@@ -127,20 +130,14 @@ class AccountCategoriesController extends Controller
                 );
             }
 
-            return response()->json(['success' => true]);
-        } catch (\Exception $e) {
-
-            Log::error($e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'error' => 'Something went wrong.'
-            ], 500);
-        }
+            return done(__('Saved.'));
     }
     public function destroy($id)
     {
-        $category = AccountCategory::findOrFail($id);
+        $category = AccountCategory::withCount('subCategories')->findOrFail($id);
+        if ($category->sub_categories_count > 0) {
+            return done(__('This category has account types under it, so it cannot be deleted.'), null, false);
+        }
 
         $name = $category->name;
 
@@ -157,9 +154,6 @@ class AccountCategoriesController extends Controller
             'deleted'
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => __('administration.category_deleted_period')
-        ]);
+        return done(__('administration.category_deleted_period'));
     }
 }

@@ -1,133 +1,89 @@
 @extends('layouts.admin.base')
+@section('title', __('ui.audit_logs'))
+@section('modern', '1')
 
-@section('title', __('administration.audit_logs'))
-@section('css')
-<link rel="stylesheet" href="{{ asset('assets/offline/ab1e55b05f962f8e.css') }}">
-<link rel="stylesheet" href="{{ asset('assets/offline/ad2e98fea92964b2.css') }}">
-<link href="{{ asset('assets/offline/febd1387d851569a.css') }}" rel="stylesheet" />
-@endsection
+{{-- Who changed what, newest first. Filters by user, part of the system, kind of change and day. --}}
+@php
+    $filtered = $filters['user_id'] || $filters['model'] !== '' || $filters['event'] !== '' || $filters['date'] !== '' || $filters['q'] !== '';
+    $events = __('administration.events');
+    $modelNames = __('administration.audit_models');
+    $tone = ['created' => 'success', 'updated' => 'warning', 'deleted' => 'danger'];
+@endphp
 
 @section('content')
-<div class="card rounded-4 border-0 shadow">
-    <div class="card-header">
-        <h4 class="card-title">{{ __('ui.audit_logs') }}</h4>
-    </div>
+<x-page-header :title="__('ui.audit_logs')" icon="clock-rotate-left" :subtitle="__('Who changed what, and when.')" />
 
+<div class="card">
     <div class="card-body">
+        <form method="GET" class="list-tools" role="search" data-live="list">
+            <input type="search" class="form-control grow" name="q" value="{{ $filters['q'] }}" placeholder="{{ __('Search the descriptions…') }}" aria-label="{{ __('ui.search') }}">
+            <select class="form-select" name="user_id" aria-label="{{ __('User') }}">
+                <option value="">{{ __('Everyone') }}</option>
+                @foreach ($users as $u)<option value="{{ $u->id }}" @selected($filters['user_id'] === $u->id)>{{ $u->name }}</option>@endforeach
+            </select>
+            <select class="form-select" name="model" aria-label="{{ __('Part of the system') }}">
+                <option value="">{{ __('Everything') }}</option>
+                @foreach ($models as $m)<option value="{{ $m }}" @selected($filters['model'] === $m)>{{ is_array($modelNames) ? ($modelNames[$m] ?? $m) : $m }}</option>@endforeach
+            </select>
+            <select class="form-select" name="event" aria-label="{{ __('Change') }}">
+                <option value="">{{ __('Any change') }}</option>
+                @foreach (['created', 'updated', 'deleted'] as $e)<option value="{{ $e }}" @selected($filters['event'] === $e)>{{ is_array($events) ? ($events[$e] ?? $e) : $e }}</option>@endforeach
+            </select>
+            <input type="date" class="form-control" name="date" value="{{ $filters['date'] }}" aria-label="{{ __('ui.date') }}" max="{{ now()->toDateString() }}">
+            <a class="btn btn-light-secondary" href="{{ route('admin.audit.index') }}" data-live-clear title="{{ __('Clear the filters') }}" aria-label="{{ __('Clear the filters') }}" @if (! $filtered) hidden @endif><x-icon name="filter-circle-xmark" /></a>
+        </form>
 
-        <div class="row g-3 mb-4 mt-2">
-            <div class="col-md-3">
-                <label class="form-label">🧑 {{ __('ui.user') }}</label>
-                <select id="user_filter" class="form-select select2">
-                    <option value="">{{ __('ui.all_users') }}</option>
-                    @foreach ($users as $user)
-                        <option value="{{ $user->id }}">{{ $user->name }}</option>
-                    @endforeach
-                </select>
+@fragment('list')
+<div data-live-part="list" data-filtered="{{ $filtered ? 1 : 0 }}">
+        @if ($logs->isEmpty())
+            <div class="empty-state">
+                <div class="es-icon"><x-icon name="clock-rotate-left" /></div>
+                <h2 class="h3">{{ $filtered ? __('Nothing found') : __('Nothing recorded yet') }}</h2>
             </div>
-
-            <div class="col-md-3">
-                <label class="form-label">🧾 {{ __('ui.model') }}</label>
-                <select id="model_filter" class="form-select">
-                    <option value="">{{ __('ui.all_models') }}</option>
-                    <option value="expenses">{{ __('ui.expenses') }}</option>
-                    <option value="account">{{ __('ui.account') }}</option>
-                    <option value="transaction">{{ __('ui.transaction') }}</option>
-                </select>
+        @else
+            <div class="table-responsive data-wrap">
+                <table class="table w-100 mb-0 data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">{{ __('When') }}</th>
+                            <th scope="col">{{ __('Who') }}</th>
+                            <th scope="col">{{ __('Change') }}</th>
+                            <th scope="col">{{ __('ui.description') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($logs as $log)
+                            @php $props = $log->properties ? $log->properties->toArray() : []; @endphp
+                            <tr>
+                                <td class="text-nowrap"><span title="{{ $log->created_at }}">{{ $log->created_at->format('Y-m-d H:i') }}</span><div class="row-meta">{{ $log->created_at->locale(app()->getLocale())->diffForHumans() }}</div></td>
+                                <td class="text-nowrap">{{ $log->causer->name ?? '—' }}</td>
+                                <td class="text-nowrap">
+                                    <span class="badge-soft {{ $tone[$log->event] ?? 'secondary' }}">{{ is_array($events) ? ($events[$log->event] ?? $log->event) : $log->event }}</span>
+                                    <div class="row-meta">{{ is_array($modelNames) ? ($modelNames[$log->log_name] ?? $log->log_name) : $log->log_name }}</div>
+                                </td>
+                                <td>
+                                    {{ $log->description }}
+                                    @if ($props)
+                                        <details class="small mt-1">
+                                            <summary class="text-muted">{{ __('Details') }}</summary>
+                                            <dl class="row mb-0 mt-1">
+                                                @foreach ($props as $key => $value)
+                                                    <dt class="col-sm-4 text-muted fw-normal">{{ $key }}</dt>
+                                                    <dd class="col-sm-8 mb-1" dir="auto">{{ is_scalar($value) || $value === null ? ($value ?? '—') : json_encode($value, JSON_UNESCAPED_UNICODE) }}</dd>
+                                                @endforeach
+                                            </dl>
+                                        </details>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
-
-            <div class="col-md-3">
-                <label class="form-label">📅 {{ __('ui.date') }}</label>
-                <input type="date" id="date_filter" class="form-control">
-            </div>
-        </div>
-
-        <table class="table table-bordered w-100" id="auditTable">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>{{ __('ui.user') }}</th>
-                    <th>{{ __('ui.model') }}</th>
-                    <th>{{ __('ui.event') }}</th>
-                    <th>{{ __('ui.description') }}</th>
-                    <th>{{ __('ui.data') }}</th>
-                    <th>{{ __('ui.time') }}</th>
-                </tr>
-            </thead>
-        </table>
-
+            {{ $logs->links('partials.pagination') }}
+        @endif
+</div>
+@endfragment
     </div>
 </div>
-
-<!-- Modal -->
-<div class="modal fade" id="propertiesModal" tabindex="-1" aria-labelledby="propertiesModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-
-      <div class="modal-header">
-        <h5 class="modal-title" id="propertiesModalLabel">{{ __('ui.log_properties') }}</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-
-      <div class="modal-body">
-        <pre id="propertiesContent" class="bg-light p-3 rounded text-break" style="white-space: pre-wrap;"></pre>
-      </div>
-
-    </div>
-  </div>
-</div>
-@endsection
-
-
-@section('js')
-<script src="{{ asset('assets/offline/77055c2f37cc45eb.js') }}"></script>
-<script src="{{ asset('assets/offline/56701b6c377f817a.js') }}"></script>
-<script src="{{ asset('assets/offline/33859893654b9de2.js') }}"></script>
-<script>
-    $('.select2').select2({ language: @include('admin.settings.partials.select-language') });
-
-    let table = $('#auditTable').DataTable({
-                language: @include('admin.settings.partials.table-language'),
-        processing: true,
-        serverSide: true,
-        responsive: true,
-        ajax: {
-            url: '{{ route('admin.audit.data') }}',
-            data: function(d) {
-                d.user_id = $('#user_filter').val();
-                d.model = $('#model_filter').val();
-                d.date = $('#date_filter').val();
-            }
-        },
-        columns: [
-            { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
-            { data: 'user', name: 'user' },
-            { data: 'log_name', name: 'log_name' },
-            { data: 'event', name: 'event' },
-            { data: 'description', name: 'description' },
-            {
-                data: 'properties',
-                name: 'properties',
-                render: function(data, type, row) {
-                    const id = row.id;
-                    const props = JSON.stringify(data, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    return `<button class="btn btn-sm btn-primary view-properties" data-id="${id}" data-properties='${props}'>{{ __('ui.blade_view') }}</button>`;
-                },
-                orderable: false,
-                searchable: false
-            },
-            { data: 'time', name: 'created_at' },
-        ]
-    });
-
-    $('#user_filter, #model_filter, #date_filter').on('change', function () {
-        table.ajax.reload();
-    });
-
-    $(document).on('click', '.view-properties', function () {
-        const props = $(this).data('properties');
-        $('#propertiesContent').text(props);
-        $('#propertiesModal').modal('show');
-    });
-</script>
 @endsection

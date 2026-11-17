@@ -30,7 +30,7 @@ class SettingsController extends Controller
             'address' => 'nullable|string',
             'default_language' => 'required|string',
             'currency' => 'required|exists:currencies,id',
-            'logo' => 'nullable|image|max:2048',
+            'logo' => 'nullable|image|mimes:png,jpg,jpeg,webp,svg|max:2048',
             'note_en' => 'nullable|string',
             'note_fa' => 'nullable|string',
             'note_ps' => 'nullable|string',
@@ -39,10 +39,11 @@ class SettingsController extends Controller
 
         if ($request->hasFile('logo')) {
             $logo = $request->file('logo');
-            $filename = $logo->getClientOriginalName();
+            // a name of our own: the sender's file name is never used on the server
+            $filename = 'logo-'.now()->format('YmdHis').'.'.($logo->guessExtension() ?: 'png');
 
             // Delete existing logo
-            if (isset($setting->logo) && $setting->logo != '' && file_exists(tenant_public_path('images/' . $setting->logo))) {
+            if (isset($setting->logo) && $setting->logo != '' && basename($setting->logo) === $setting->logo && file_exists(tenant_public_path('images/' . $setting->logo))) {
                 unlink(tenant_public_path('images/' . $setting->logo));
             }
 
@@ -50,7 +51,7 @@ class SettingsController extends Controller
             $data['logo'] = $filename;
         }
 
-        $data['round_amount'] = $request->has('round_amount') ? 1 : 0;
+        $data['round_amount'] = $request->boolean('round_amount') ? 1 : 0;
 
         $setting->update($data);
 

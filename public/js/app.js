@@ -541,7 +541,7 @@ if (title) title.textContent = editing ? title.getAttribute('data-title-edit') :
 $$('[data-only-new]', form).forEach(function (el) { el.hidden = editing; $$('input,select,textarea', el).forEach(function (f) { f.disabled = editing; }); });
 $$('[data-only-edit]', form).forEach(function (el) { el.hidden = !editing; $$('input,select,textarea', el).forEach(function (f) { f.disabled = !editing; }); });
 if (opts.fill) fillForm(form, opts.fill);
-form.dispatchEvent(new CustomEvent('erp:form-open', { detail: { editing: editing, data: opts.fill || null } }));
+form.dispatchEvent(new CustomEvent('erp:form-open', { bubbles: true, detail: { editing: editing, data: opts.fill || null } }));
 ERP.showModal(modal);
 };
 document.addEventListener('click', function (e) {
