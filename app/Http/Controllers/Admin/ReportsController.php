@@ -1928,119 +1928,80 @@ class ReportsController extends Controller
 
     public function customerExchangeReportData(Request $request)
     {
-        $query = Exchange::query()
-            ->with([
-                'account:id,name,code',
-                'fromCurrency:id,name,code,symbol',
-                'toCurrency:id,name,code,symbol',
-            ]);
+        // totals are counted by the database over every matching exchange; the table gets the
+        // newest ROW_LIMIT rows, so the answer stays small and fast with years of exchanges
+        $base = Exchange::query();
+        $this->applyExchangeTableReportFilters($base, $request);
 
-        $this->applyExchangeTableReportFilters($query, $request);
-
-        $exchanges = $query
-            ->orderByDesc('date')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->lazy(1000);
-
-        $rows = [];
-
+        $s = (clone $base)->toBase()->selectRaw("COUNT(*) AS total_records,
+            SUM(CASE WHEN type = 'purchase' THEN 1 ELSE 0 END) AS purchase_count,
+            SUM(CASE WHEN type = 'sell' THEN 1 ELSE 0 END) AS sell_count,
+            SUM(CASE WHEN mode = 'cash' THEN 1 ELSE 0 END) AS cash_count,
+            SUM(CASE WHEN mode = 'customer' THEN 1 ELSE 0 END) AS customer_count,
+            COALESCE(SUM(usd_amount), 0) AS total_usd_amount,
+            COALESCE(SUM(profit), 0) AS total_profit")->first();
         $summary = [
-            'total_records' => 0,
-            'purchase_count' => 0,
-            'sell_count' => 0,
-            'cash_count' => 0,
-            'customer_count' => 0,
-            'total_usd_amount' => 0,
-            'total_profit' => 0,
+            'total_records' => (int) $s->total_records,
+            'purchase_count' => (int) $s->purchase_count,
+            'sell_count' => (int) $s->sell_count,
+            'cash_count' => (int) $s->cash_count,
+            'customer_count' => (int) $s->customer_count,
+            'total_usd_amount' => (float) $s->total_usd_amount,
+            'total_profit' => (float) $s->total_profit,
         ];
 
-        /*
-     |--------------------------------------------------------------------------
-     | Pair-based currency summary
-     |--------------------------------------------------------------------------
-     | Example:
-     | USD -> AFN
-     | Total From = total USD
-     | Average Rate = AVG(rate)
-     | Total To = total AFN
-     */
-        $currencyPairTotals = [];
+        $currencies = Currency::query()->get(['id', 'name', 'code'])->keyBy('id');
+        $label = fn ($id) => $this->exchangeCurrencyLabel($currencies->get($id));
+        $pairs = $this->exchangePairTotals(clone $base, $label);
 
-        foreach ($exchanges as $exchange) {
-            $fromCurrency = $this->exchangeCurrencyLabel($exchange->fromCurrency);
-            $toCurrency = $this->exchangeCurrencyLabel($exchange->toCurrency);
+        $exchanges = (clone $base)
+            ->with(['account:id,name,code'])
+            ->orderByDesc('date')->orderByDesc('created_at')->orderByDesc('id')
+            ->limit(self::ROW_LIMIT)
+            ->get();
 
-            $pairKey = $exchange->from_currency_id . '_' . $exchange->to_currency_id;
-
-            if (!isset($currencyPairTotals[$pairKey])) {
-                $currencyPairTotals[$pairKey] = [
-                    'from_currency' => $fromCurrency,
-                    'to_currency' => $toCurrency,
-                    'from_total' => 0,
-                    'to_total' => 0,
-                    'rate_total' => 0,
-                    'rate_count' => 0,
-                    'average_rate' => 0,
-                    'records' => 0,
-                ];
-            }
-
-            $currencyPairTotals[$pairKey]['from_total'] += (float) $exchange->from_amount;
-            $currencyPairTotals[$pairKey]['to_total'] += (float) $exchange->to_amount;
-            $currencyPairTotals[$pairKey]['rate_total'] += (float) $exchange->rate;
-            $currencyPairTotals[$pairKey]['rate_count']++;
-            $currencyPairTotals[$pairKey]['records']++;
-
-            if ($exchange->type === 'purchase') {
-                $summary['purchase_count']++;
-            }
-
-            if ($exchange->type === 'sell') {
-                $summary['sell_count']++;
-            }
-
-            if ($exchange->mode === 'cash') {
-                $summary['cash_count']++;
-            }
-
-            if ($exchange->mode === 'customer') {
-                $summary['customer_count']++;
-            }
-
-            $summary['total_usd_amount'] += (float) ($exchange->usd_amount ?? 0);
-            $summary['total_profit'] += (float) ($exchange->profit ?? 0);
-            $summary['total_records']++;
-
-            if (count($rows) >= self::ROW_LIMIT) {
-                continue;
-            }
-            $rows[] = [
-                'id' => $exchange->id,
-                'date_time' => optional($exchange->date)->format('Y-m-d') . ' ' . optional($exchange->created_at)->format('H:i'),
-                'customer_name' => optional($exchange->account)->name ?? '-',
-                'customer_code' => optional($exchange->account)->code ?? '-',
-                'type' => $exchange->type,
-                'from_currency' => $fromCurrency,
-                'to_currency' => $toCurrency,
-                'from_amount' => (float) $exchange->from_amount,
-                'to_amount' => (float) $exchange->to_amount,
-                'rate' => (float) $exchange->rate,
-            ];
-        }
-
-        foreach ($currencyPairTotals as $key => $item) {
-            $currencyPairTotals[$key]['average_rate'] = $item['rate_count'] > 0
-                ? $item['rate_total'] / $item['rate_count']
-                : 0;
-        }
+        $rows = $exchanges->map(fn ($exchange) => [
+            'id' => $exchange->id,
+            'date_time' => optional($exchange->date)->format('Y-m-d') . ' ' . optional($exchange->created_at)->format('H:i'),
+            'customer_name' => optional($exchange->account)->name ?? '-',
+            'customer_code' => optional($exchange->account)->code ?? '-',
+            'type' => $exchange->type,
+            'from_currency' => $label($exchange->from_currency_id),
+            'to_currency' => $label($exchange->to_currency_id),
+            'from_amount' => (float) $exchange->from_amount,
+            'to_amount' => (float) $exchange->to_amount,
+            'rate' => (float) $exchange->rate,
+        ])->all();
 
         return response()->json([
             'rows' => $rows,
             'rows_limited' => $summary['total_records'] > count($rows),
             'summary' => $summary,
-            'currency_pair_totals' => array_values($currencyPairTotals),
+            'currency_pair_totals' => array_values($pairs),
         ]);
+    }
+
+    /** From-currency to to-currency totals of the exchanges in $query, counted by the database. */
+    private function exchangePairTotals($query, callable $label): array
+    {
+        return $query->toBase()
+            ->groupBy('from_currency_id', 'to_currency_id')
+            ->orderByRaw('MAX(date) DESC')
+            ->selectRaw('from_currency_id, to_currency_id,
+                COALESCE(SUM(from_amount), 0) AS from_total, COALESCE(SUM(to_amount), 0) AS to_total,
+                COALESCE(SUM(rate), 0) AS rate_total, COUNT(*) AS records')
+            ->get()
+            ->map(fn ($p) => [
+                'from_currency_id' => (int) $p->from_currency_id,
+                'from_currency' => $label($p->from_currency_id),
+                'to_currency' => $label($p->to_currency_id),
+                'from_total' => (float) $p->from_total,
+                'to_total' => (float) $p->to_total,
+                'rate_total' => (float) $p->rate_total,
+                'rate_count' => (int) $p->records,
+                'average_rate' => $p->records > 0 ? (float) $p->rate_total / $p->records : 0,
+                'records' => (int) $p->records,
+            ])->all();
     }
 
     public function customerExchangeReportPrint(Request $request)
@@ -2229,140 +2190,74 @@ class ReportsController extends Controller
             ->orderByRaw("CASE WHEN code = 'USD' THEN 0 ELSE 1 END")
             ->orderBy('id')
             ->get();
+        $all = Currency::query()->get(['id', 'name', 'code'])->keyBy('id');
+        $label = fn ($id) => $this->exchangeCurrencyLabel($all->get($id));
 
-        $query = Exchange::query()
-            ->with([
-                'account:id,name,code',
-                'fromCurrency:id,name,code,symbol',
-                'toCurrency:id,name,code,symbol',
-            ]);
+        $base = Exchange::query()->whereIn('from_currency_id', $currencies->pluck('id'));
+        $this->applyCurrencyExchangeTabFilters($base, $request);
 
-        $this->applyCurrencyExchangeTabFilters($query, $request);
-
-        $exchanges = $query
-            ->orderByDesc('date')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->lazy(1000);
+        // per From currency, counted by the database over every matching exchange
+        $perTab = (clone $base)->toBase()->groupBy('from_currency_id')->selectRaw("from_currency_id, COUNT(*) AS records,
+            SUM(CASE WHEN type = 'purchase' THEN 1 ELSE 0 END) AS purchase_count,
+            SUM(CASE WHEN type = 'sell' THEN 1 ELSE 0 END) AS sell_count,
+            SUM(CASE WHEN mode = 'cash' THEN 1 ELSE 0 END) AS cash_count,
+            SUM(CASE WHEN mode = 'customer' THEN 1 ELSE 0 END) AS customer_count,
+            COALESCE(SUM(profit), 0) AS profit")->get()->keyBy('from_currency_id');
+        $pairs = collect($this->exchangePairTotals(clone $base, $label))->groupBy('from_currency_id');
 
         $tabs = [];
+        $globalSummary = ['total_records' => 0, 'active_tabs' => 0, 'purchase_count' => 0, 'sell_count' => 0, 'cash_count' => 0, 'customer_count' => 0, 'total_profit' => 0];
 
         foreach ($currencies as $currency) {
-            $tabs[$currency->id] = [
+            $t = $perTab->get($currency->id);
+            $summary = [
+                'records' => (int) ($t->records ?? 0),
+                'purchase_count' => (int) ($t->purchase_count ?? 0),
+                'sell_count' => (int) ($t->sell_count ?? 0),
+                'cash_count' => (int) ($t->cash_count ?? 0),
+                'customer_count' => (int) ($t->customer_count ?? 0),
+                'profit' => (float) ($t->profit ?? 0),
+            ];
+            $rows = [];
+            if ($summary['records'] > 0) {
+                $globalSummary['active_tabs']++;
+                $rows = (clone $base)->where('from_currency_id', $currency->id)
+                    ->with(['account:id,name,code'])
+                    ->orderByDesc('date')->orderByDesc('created_at')->orderByDesc('id')
+                    ->limit(self::ROW_LIMIT)->get()
+                    ->map(fn ($exchange) => [
+                        'date_time' => optional($exchange->date)->format('Y-m-d') . ' ' . optional($exchange->created_at)->format('H:i'),
+                        'customer_name' => optional($exchange->account)->name ?? '-',
+                        'customer_code' => optional($exchange->account)->code ?? '-',
+                        'type' => $exchange->type,
+                        'mode' => $exchange->mode,
+                        'from_currency' => $label($exchange->from_currency_id),
+                        'to_currency' => $label($exchange->to_currency_id),
+                        'from_amount' => (float) $exchange->from_amount,
+                        'to_amount' => (float) $exchange->to_amount,
+                        'rate' => (float) $exchange->rate,
+                        'profit' => (float) ($exchange->profit ?? 0),
+                    ])->all();
+            }
+            foreach (['purchase_count', 'sell_count', 'cash_count', 'customer_count'] as $k) {
+                $globalSummary[$k] += $summary[$k];
+            }
+            $globalSummary['total_records'] += $summary['records'];
+            $globalSummary['total_profit'] += $summary['profit'];
+
+            $tabs[] = [
                 'currency_id' => $currency->id,
                 'currency_code' => $currency->code ?: $currency->name,
                 'currency_name' => $currency->name,
-                'rows' => [],
-                'totals' => [],
-                'summary' => [
-                    'records' => 0,
-                    'purchase_count' => 0,
-                    'sell_count' => 0,
-                    'cash_count' => 0,
-                    'customer_count' => 0,
-                    'profit' => 0,
-                ],
+                'rows' => $rows,
+                'rows_limited' => $summary['records'] > count($rows),
+                'totals' => collect($pairs->get($currency->id, []))->map(fn ($p) => collect($p)->except('from_currency_id')->all())->values()->all(),
+                'summary' => $summary,
             ];
-        }
-
-        $globalSummary = [
-            'total_records' => 0,
-            'active_tabs' => 0,
-            'purchase_count' => 0,
-            'sell_count' => 0,
-            'cash_count' => 0,
-            'customer_count' => 0,
-            'total_profit' => 0,
-        ];
-
-        foreach ($exchanges as $exchange) {
-            $fromCurrencyId = $exchange->from_currency_id;
-
-            if (!isset($tabs[$fromCurrencyId])) {
-                continue;
-            }
-
-            $fromCurrency = $this->exchangeCurrencyLabel($exchange->fromCurrency);
-            $toCurrency = $this->exchangeCurrencyLabel($exchange->toCurrency);
-
-            $pairKey = $exchange->from_currency_id . '_' . $exchange->to_currency_id;
-
-            if (!isset($tabs[$fromCurrencyId]['totals'][$pairKey])) {
-                $tabs[$fromCurrencyId]['totals'][$pairKey] = [
-                    'from_currency' => $fromCurrency,
-                    'to_currency' => $toCurrency,
-                    'from_total' => 0,
-                    'to_total' => 0,
-                    'rate_total' => 0,
-                    'rate_count' => 0,
-                    'average_rate' => 0,
-                    'records' => 0,
-                ];
-            }
-
-            $tabs[$fromCurrencyId]['totals'][$pairKey]['from_total'] += (float) $exchange->from_amount;
-            $tabs[$fromCurrencyId]['totals'][$pairKey]['to_total'] += (float) $exchange->to_amount;
-            $tabs[$fromCurrencyId]['totals'][$pairKey]['rate_total'] += (float) $exchange->rate;
-            $tabs[$fromCurrencyId]['totals'][$pairKey]['rate_count']++;
-            $tabs[$fromCurrencyId]['totals'][$pairKey]['records']++;
-
-            if (count($tabs[$fromCurrencyId]['rows']) < self::ROW_LIMIT) $tabs[$fromCurrencyId]['rows'][] = [
-                'date_time' => optional($exchange->date)->format('Y-m-d') . ' ' . optional($exchange->created_at)->format('H:i'),
-                'customer_name' => optional($exchange->account)->name ?? '-',
-                'customer_code' => optional($exchange->account)->code ?? '-',
-                'type' => $exchange->type,
-                'mode' => $exchange->mode,
-                'from_currency' => $fromCurrency,
-                'to_currency' => $toCurrency,
-                'from_amount' => (float) $exchange->from_amount,
-                'to_amount' => (float) $exchange->to_amount,
-                'rate' => (float) $exchange->rate,
-                'profit' => (float) ($exchange->profit ?? 0),
-            ];
-
-            $tabs[$fromCurrencyId]['summary']['records']++;
-            $tabs[$fromCurrencyId]['summary']['profit'] += (float) ($exchange->profit ?? 0);
-
-            if ($exchange->type === 'purchase') {
-                $tabs[$fromCurrencyId]['summary']['purchase_count']++;
-                $globalSummary['purchase_count']++;
-            }
-
-            if ($exchange->type === 'sell') {
-                $tabs[$fromCurrencyId]['summary']['sell_count']++;
-                $globalSummary['sell_count']++;
-            }
-
-            if ($exchange->mode === 'cash') {
-                $tabs[$fromCurrencyId]['summary']['cash_count']++;
-                $globalSummary['cash_count']++;
-            }
-
-            if ($exchange->mode === 'customer') {
-                $tabs[$fromCurrencyId]['summary']['customer_count']++;
-                $globalSummary['customer_count']++;
-            }
-
-            $globalSummary['total_records']++;
-            $globalSummary['total_profit'] += (float) ($exchange->profit ?? 0);
-        }
-
-        foreach ($tabs as $currencyId => $tab) {
-            foreach ($tab['totals'] as $pairKey => $total) {
-                $tabs[$currencyId]['totals'][$pairKey]['average_rate'] = $total['rate_count'] > 0
-                    ? $total['rate_total'] / $total['rate_count']
-                    : 0;
-            }
-
-            $tabs[$currencyId]['totals'] = array_values($tabs[$currencyId]['totals']);
-
-            if ($tabs[$currencyId]['summary']['records'] > 0) {
-                $globalSummary['active_tabs']++;
-            }
         }
 
         return response()->json([
-            'tabs' => array_values($tabs),
+            'tabs' => $tabs,
             'summary' => $globalSummary,
         ]);
     }
