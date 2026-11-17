@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 class TenantsSmoke extends Command
 {
     protected $signature = 'tenants:smoke {tenant : Short name} {paths?* : Paths to open; default the pages of the menu}
+        {--balances : Compare the stored balance of every account with the sum of its transactions}
         {--form=* : "METHOD path field=value&field=value" sent after the pages, inside one database transaction that is rolled back}';
 
     protected $description = 'Open the main pages of a Sarafi as its administrator and report errors';
@@ -121,6 +122,29 @@ class TenantsSmoke extends Command
                 \Illuminate\Support\Facades\DB::connection()->rollBack();
                 $this->line('(the forms were undone)');
             }
+        }
+
+        if ($this->option('balances')) {
+            $tenancy->initialize($tenant);
+            $ledger = \Illuminate\Support\Facades\DB::table('transactions')->where('status', 'active')
+                ->groupBy('account_id', 'currency_id')
+                ->selectRaw("account_id, currency_id, ROUND(SUM(CASE WHEN transaction_type = 'credit' THEN amount ELSE -amount END), 2) AS balance")
+                ->get()->keyBy(fn ($r) => $r->account_id.'-'.$r->currency_id);
+            $stored = \Illuminate\Support\Facades\DB::table('account_balances')->get(['account_id', 'currency_id', 'balance'])
+                ->keyBy(fn ($r) => $r->account_id.'-'.$r->currency_id);
+            $wrong = [];
+            foreach ($ledger->keys()->merge($stored->keys())->unique() as $key) {
+                $a = round((float) ($ledger[$key]->balance ?? 0), 2);
+                $b = round((float) ($stored[$key]->balance ?? 0), 2);
+                if (abs($a - $b) >= 0.01) {
+                    $wrong[] = "account-currency {$key}: transactions {$a}, stored {$b}";
+                }
+            }
+            $this->line('balances: '.$ledger->count().' account-currency pairs, '.count($wrong).' different');
+            foreach (array_slice($wrong, 0, 15) as $line) {
+                $this->line('  '.$line);
+            }
+            $failed += count($wrong) ? 1 : 0;
         }
 
         $this->line($failed ? "$failed page(s) failed." : 'Every page opened.');

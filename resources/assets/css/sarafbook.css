@@ -190,6 +190,8 @@ div.rh-service { cursor: default; }
 .table-premium td { padding: 6px 12px !important; font-size: .825rem !important; color: var(--text); vertical-align: middle; }
 
 /* ------------------------------------------------------------------- accounts */
+.acc-toggle[aria-expanded="true"] [data-when="closed"], .acc-toggle[aria-expanded="false"] [data-when="open"] { display: none; }
+#accSummary[hidden] { display: none !important; }
 .acc-count { font-size: 30px; font-weight: 800; color: var(--heading); line-height: 1.1; font-variant-numeric: tabular-nums; }
 [dir="rtl"] .acc-count { text-align: right; }
 .acc-code { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: .3px; background: var(--hover); color: var(--muted); vertical-align: 1px; }
@@ -201,14 +203,38 @@ div.rh-service { cursor: default; }
 .acc-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 4px; vertical-align: 0; }
 .acc-dot.is-debit { background: #c62828; }
 .acc-dot.is-credit { background: var(--primary); }
-.acc-name { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; max-width: 100%; }
-.acc-name strong { display: block; color: var(--heading); font-weight: 700; line-height: 1.3; }
-.acc-name small { display: block; font-size: 12px; color: var(--muted); }
-[dir="rtl"] .acc-name small { text-align: right; }
-.acc-name:hover strong { color: var(--primary); }
-.acc-address { display: block; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.acc-balance { white-space: nowrap; line-height: 1.7; font-size: 13.5px; }
-.acc-table td { vertical-align: middle; }
-.acc-table .badge-soft .fi { font-size: 10px; }
+
+/* the list: one line for every account, one column for every currency */
+.acc-wrap { border: 1px solid var(--border); border-radius: 14px; }
+.acc-table { --acc-pad: 12px; }
+.acc-table thead th { position: sticky; top: 0; z-index: 1; background: var(--hover); font-size: 11.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); padding: 11px var(--acc-pad); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.acc-table tbody td { padding: 10px var(--acc-pad); vertical-align: middle; border-bottom: 1px solid var(--border); }
+.acc-table tbody tr:last-child td { border-bottom: 0; }
+.acc-table tbody tr:hover td { background: var(--hover); }
+.acc-table .acc-cur-head { min-width: 116px; }
+.acc-who { display: flex; align-items: center; gap: 12px; min-width: 210px; }
+.acc-who .avatar { flex: 0 0 auto; text-decoration: none; }
+.acc-name { display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 14px; color: var(--heading); text-decoration: none; }
+.acc-name:hover { color: var(--primary); }
+.acc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.acc-meta .badge-soft { font-size: 10.5px; padding: 1px 8px; }
+.acc-flag { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font-size: 9.5px; color: var(--primary); background: var(--primary-soft); }
+.acc-flag.is-muted { color: var(--muted); background: var(--hover); }
+.acc-contact a { color: var(--text); text-decoration: none; font-size: 13.5px; }
+.acc-contact a:hover { color: var(--primary); }
+.acc-address { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+.acc-amount { white-space: nowrap; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.acc-amount.is-debit { color: #c62828; }
+.acc-amount.is-credit { color: var(--primary); }
+.acc-amount.is-zero { color: var(--border-strong, #c4cad6); font-weight: 400; }
+[data-bs-theme="dark"] .acc-amount.is-debit { color: #f87171; }
+.btn-act.is-gray { color: var(--muted); background: var(--hover); border-color: transparent; }
+.btn-act.is-gray:hover { color: var(--heading) !important; background: var(--border); }
+.acc-table .dropdown-item { display: flex; align-items: center; font-size: 13.5px; }
+.acc-table .dropdown-item .fi { width: 16px; }
+/* on a phone each account becomes a card; empty currencies are left out of it */
+.acc-wrap:has(.table-cards) { border: 0; }
+.table-cards.acc-table td.is-zero { display: none; }
+.table-cards.acc-table td { border-bottom: 0; }
 .acc-steps { margin: 0; padding-inline-start: 1.2rem; display: grid; gap: 16px; }
 .acc-steps > li::marker { font-weight: 800; color: var(--primary); }

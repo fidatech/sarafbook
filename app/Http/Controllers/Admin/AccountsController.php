@@ -98,8 +98,16 @@ class AccountsController extends Controller
             ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
             ->where('balance', '!=', 0)
             ->orderBy('currency_id')
-            ->get(['account_id', 'currency_id', 'balance'])
-            ->groupBy('account_id');
+            ->get(['account_id', 'currency_id', 'balance']);
+
+        // one column for every currency that has a balance on this page (or the chosen currency)
+        $columns = $currencyId
+            ? $currencies->only([$currencyId])
+            : $currencies->only($balances->pluck('currency_id')->unique()->all())->sortKeys();
+        if ($columns->isEmpty()) {
+            $columns = $currencies->where('is_active', true)->take(5);
+        }
+        $balances = $balances->groupBy('account_id')->map(fn ($rows) => $rows->pluck('balance', 'currency_id'));
 
         // totals of the filtered accounts; without a type, the cash accounts (safe, profit and
         // loss, expenses) are left out, because adding them to customers would mean nothing
@@ -125,6 +133,7 @@ class AccountsController extends Controller
         return view('admin.accounts.index', [
             'accounts' => $accounts,
             'balances' => $balances,
+            'columns' => $columns,
             'currencies' => $currencies,
             'subCategories' => $subCategories,
             'cashCategoryId' => $cashCategoryId,

@@ -14,6 +14,10 @@ on:
         description: Short name of a Sarafi whose pages should be opened as its administrator (optional)
       paths:
         description: Paths to open for it, separated by spaces (default the pages of the menu)
+      balances:
+        description: Compare stored balances with the transactions
+        type: boolean
+        default: false
       forms:
         description: 'Forms to send and undo, separated by ";" e.g. POST admin/accounts name=Test&create_account_sub_category_id=1'
 
@@ -34,6 +38,7 @@ jobs:
       SMOKE_TENANT: ${{ inputs.smoke }}
       SMOKE_PATHS: ${{ inputs.paths }}
       SMOKE_FORMS: ${{ inputs.forms }}
+      SMOKE_BALANCES: ${{ inputs.balances && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up SSH
@@ -44,6 +49,6 @@ jobs:
         run: |
           set -Eeuo pipefail
           {
-            for name in CHECK_URL ERRORS SMOKE_TENANT SMOKE_PATHS SMOKE_FORMS; do printf 'export %s=%q\n' "$name" "${!name}"; done
+            for name in CHECK_URL ERRORS SMOKE_TENANT SMOKE_PATHS SMOKE_FORMS SMOKE_BALANCES; do printf 'export %s=%q\n' "$name" "${!name}"; done
             cat scripts/deploy/cpanel-diagnose.sh
           } | ssh production 'bash -s'

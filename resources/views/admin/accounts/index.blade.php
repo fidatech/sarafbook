@@ -22,14 +22,17 @@
 
 @section('content')
 <x-page-header :title="__('ui.accounts')" icon="address-book" :subtitle="__('Customers, Sarafs and the cash accounts, with their balance in every currency.')">
+    <button class="btn btn-outline-soft acc-toggle" type="button" id="summaryToggle" aria-controls="accSummary" aria-expanded="true">
+        <x-icon name="chart-simple" class="me-1" /> <span data-when="open">{{ __('Hide totals') }}</span><span data-when="closed">{{ __('Show totals') }}</span>
+    </button>
     @if ($canCreate)
         <button class="btn btn-outline-soft" type="button" data-bs-toggle="modal" data-bs-target="#importModal"><x-icon name="file-import" class="me-1" /> {{ __('ui.bulk_import') }}</button>
         <button class="btn btn-primary" type="button" data-account-new><x-icon name="plus" class="me-1" /> {{ __('ui.create_account') }}</button>
     @endif
 </x-page-header>
 
-{{-- totals of the accounts the filters show --}}
-<div class="row g-3 mb-3">
+{{-- totals of the accounts the filters show; the toggle above hides them, and the choice is remembered --}}
+<div class="row g-3 mb-3" id="accSummary">
     <div class="col-12 col-lg-3">
         <div class="card h-100 mb-0">
             <div class="card-body">
@@ -66,6 +69,8 @@
         </div>
     </div>
 </div>
+
+<script>try{if(localStorage.getItem('sb.accounts.totals')==='0'){document.getElementById('accSummary').hidden=true;document.getElementById('summaryToggle').setAttribute('aria-expanded','false')}}catch(e){}</script>
 
 <div class="card">
     <div class="card-body">
@@ -129,14 +134,16 @@
                 @endif
             </div>
         @else
-            <table class="table table-hover w-100 acc-table">
+            <div class="table-responsive acc-wrap">
+            <table class="table w-100 mb-0 acc-table">
                 <thead>
                     <tr>
-                        <th>{{ __('ui.account_name') }}</th>
-                        <th>{{ __('ui.type') }}</th>
-                        <th>{{ __('ui.contact') }}</th>
-                        <th class="text-end">{{ __('ui.balance') }}</th>
-                        <th class="text-end no-print">{{ __('ui.actions') }}</th>
+                        <th scope="col">{{ __('ui.account_name') }}</th>
+                        <th scope="col">{{ __('ui.contact') }}</th>
+                        @foreach ($columns as $currency)
+                            <th scope="col" class="text-end acc-cur-head">{{ $currency->code }}</th>
+                        @endforeach
+                        <th scope="col" class="text-end no-print"><span class="visually-hidden">{{ __('ui.actions') }}</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,8 +151,9 @@
                         @php
                             $sub = $account->subCategory;
                             $isCash = $cashCategoryId && (int) $sub?->account_category_id === (int) $cashCategoryId;
-                            $rows = $balances->get($account->id, collect());
+                            $mine = $balances->get($account->id, collect());
                             $url = route('admin.accounts.show', $account->id);
+                            $tone = ['Customer' => 'primary', 'Saraf' => 'info', 'Safe' => 'success', 'PnL' => 'warning', 'EXP' => 'secondary'][$sub?->name] ?? 'secondary';
                             $editJson = json_encode([
                                 'id' => $account->id, 'name' => $account->name, 'code' => $account->code,
                                 'type' => $account->account_sub_category_id, 'contact' => $account->contact,
@@ -155,58 +163,69 @@
                         @endphp
                         <tr>
                             <td>
-                                <a class="acc-name" href="{{ $url }}">
-                                    <span class="avatar avatar-sm {{ $isCash ? 'avatar-soft-success' : 'avatar-soft-primary' }}" aria-hidden="true">{{ initial($account->name) }}</span>
-                                    <span class="min-w-0"><strong>{{ $account->name }}</strong><small dir="ltr">{{ $account->code }}</small></span>
-                                </a>
-                                @if ($account->user)
-                                    <span class="badge-soft info ms-1" title="{{ __('Has a login for the customer') }}"><x-icon name="user-check" /> {{ $account->user->username }}</span>
-                                @endif
+                                <div class="acc-who">
+                                    <a href="{{ $url }}" class="avatar avatar-sm avatar-soft-{{ $tone }}" aria-hidden="true" tabindex="-1">{{ initial($account->name) }}</a>
+                                    <div class="min-w-0">
+                                        <a class="acc-name" href="{{ $url }}">{{ $account->name }}</a>
+                                        <div class="acc-meta">
+                                            <span dir="ltr">{{ $account->code }}</span>
+                                            <span class="badge-soft {{ $tone }}">{{ $typeName($sub) }}</span>
+                                            @if ($account->user)
+                                                <span class="acc-flag" title="{{ __('Has a login for the customer') }}"><x-icon name="user-check" /></span>
+                                            @endif
+                                            @unless ($account->include_in_reports)
+                                                <span class="acc-flag is-muted" title="{{ __('Not in the reports') }}"><x-icon name="eye-slash" /></span>
+                                            @endunless
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
-                            <td>
-                                <span class="d-block">{{ $typeName($sub) }}</span>
-                                @unless ($account->include_in_reports)
-                                    <small class="text-muted">{{ __('Not in the reports') }}</small>
-                                @endunless
-                            </td>
-                            <td>
-                                @if (filled($account->contact))
-                                    <span class="d-block text-nowrap" dir="ltr">{{ $account->contact }}</span>
+                            <td class="acc-contact">
+                                @if (filled($account->contact) && $account->contact !== '+93')
+                                    <a href="tel:{{ preg_replace('/[^0-9+]/', '', $account->contact) }}" dir="ltr" class="text-nowrap">{{ $account->contact }}</a>
+                                @else
+                                    <span class="text-muted">—</span>
                                 @endif
                                 @if (filled($account->address))
-                                    <small class="text-muted acc-address">{{ $account->address }}</small>
-                                @endif
-                                @if (blank($account->contact) && blank($account->address))
-                                    <span class="text-muted">—</span>
+                                    <small class="acc-address" title="{{ $account->address }}">{{ $account->address }}</small>
                                 @endif
                             </td>
-                            <td class="text-end">
-                                @forelse ($rows as $b)
-                                    <div class="acc-balance {{ $b->balance < 0 ? 'acc-debit' : 'acc-credit' }}" dir="ltr" title="{{ $b->balance < 0 ? __('They owe us') : __('We owe them') }}">
-                                        {{ format_amount(abs($b->balance), 2) }} <span class="acc-code">{{ $currencies[$b->currency_id]->code ?? '' }}</span>
-                                    </div>
-                                @empty
-                                    <span class="text-muted">—</span>
-                                @endforelse
-                            </td>
+                            @foreach ($columns as $currency)
+                                @php $value = (float) ($mine[$currency->id] ?? 0); @endphp
+                                @if (abs($value) < 0.005)
+                                    <td class="text-end acc-amount is-zero"><span aria-label="{{ __('No balance') }}">—</span></td>
+                                @else
+                                    <td class="text-end acc-amount {{ $value < 0 ? 'is-debit' : 'is-credit' }}" dir="ltr" title="{{ $value < 0 ? __('They owe us') : __('We owe them') }}">{{ format_amount(abs($value), 2) }}</td>
+                                @endif
+                            @endforeach
                             <td class="text-end text-nowrap no-print">
                                 <div class="act-group">
                                     <x-act kind="view" :href="$url" />
-                                    @if ($canMessage && filled($account->contact))
-                                        <x-act kind="whatsapp" type="button" :label="__('Send the balance on WhatsApp')" data-whatsapp="{{ route('admin.accounts.send-whatsapp', $account->id) }}" />
-                                    @endif
                                     @if ($canUpdate)
                                         <x-act kind="edit" type="button" data-account-edit="{{ $editJson }}" />
                                     @endif
-                                    @if ($canDelete && ! $isCash)
-                                        <form method="POST" action="{{ route('admin.accounts.destroy', $account->id) }}" class="d-inline"
-                                              data-confirm="{{ __('Delete :name?', ['name' => $account->name]) }}"
-                                              data-confirm-text="{{ __('The account and every transaction on it are deleted. This cannot be undone.') }}"
-                                              data-confirm-ok="{{ __('Delete') }}">
-                                            @csrf
-                                            @method('DELETE')
-                                            <x-act kind="delete" />
-                                        </form>
+                                    @if (($canMessage && filled($account->contact)) || ($canDelete && ! $isCash))
+                                        <div class="dropdown d-inline-block">
+                                            <button class="btn-act is-gray" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ __('More') }}" aria-label="{{ __('More') }}"><x-icon name="ellipsis-vertical" /></button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                @if ($canMessage && filled($account->contact))
+                                                    <li><button class="dropdown-item" type="button" data-whatsapp="{{ route('admin.accounts.send-whatsapp', $account->id) }}"><x-icon name="comment-dots" class="me-2 text-success" /> {{ __('Send the balance on WhatsApp') }}</button></li>
+                                                @endif
+                                                @if ($canDelete && ! $isCash)
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <form method="POST" action="{{ route('admin.accounts.destroy', $account->id) }}"
+                                                              data-confirm="{{ __('Delete :name?', ['name' => $account->name]) }}"
+                                                              data-confirm-text="{{ __('The account and every transaction on it are deleted. This cannot be undone.') }}"
+                                                              data-confirm-ok="{{ __('Delete') }}">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button class="dropdown-item text-danger" type="submit"><x-icon name="trash" class="me-2" /> {{ __('Delete') }}</button>
+                                                        </form>
+                                                    </li>
+                                                @endif
+                                            </ul>
+                                        </div>
                                     @endif
                                 </div>
                             </td>
@@ -214,6 +233,7 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
             {{ $accounts->links('partials.pagination') }}
         @endif
     </div>
@@ -341,6 +361,15 @@ document.addEventListener('DOMContentLoaded', function () {
         sent: @json(__('The message is ready in WhatsApp.')),
         failed: @json(__('accounts.send_failed'))
     };
+
+    // totals: hide or show, remembered on this device
+    var toggle = document.getElementById('summaryToggle'), summary = document.getElementById('accSummary');
+    if (toggle && summary) toggle.addEventListener('click', function () {
+        var open = summary.hidden;
+        summary.hidden = !open;
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        try { localStorage.setItem('sb.accounts.totals', open ? '1' : '0'); } catch (e) {}
+    });
 
     // filters: a choice in a list applies at once
     document.querySelectorAll('#accountFilters [data-autosubmit]').forEach(function (select) {

@@ -23,7 +23,7 @@ if [ -n "${SMOKE_TENANT:-}" ]; then
         IFS=';' read -ra parts <<< "$SMOKE_FORMS"
         for part in "${parts[@]}"; do forms+=("--form=$part"); done
     fi
-    (cd "$APP" && "$PHP" artisan tenants:smoke "$SMOKE_TENANT" ${SMOKE_PATHS:-} "${forms[@]}" --no-interaction 2>&1 | sed -E "s#$HOME/##g" | cut -c1-420) || true
+    (cd "$APP" && "$PHP" artisan tenants:smoke "$SMOKE_TENANT" ${SMOKE_PATHS:-} "${forms[@]}" ${SMOKE_BALANCES:+--balances} --no-interaction 2>&1 | sed -E "s#$HOME/##g" | cut -c1-420) || true
 fi
 LOG=$(ls -t "$APP"/storage/logs/*.log 2>/dev/null | head -1)
 [ -n "$LOG" ] || { echo "No log file yet."; exit 0; }

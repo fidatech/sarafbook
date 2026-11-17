@@ -58,3 +58,5 @@ kpi-violet kpi-amber kpi-green kpi-blue is-loading is-negative
 #s-address-book #s-file-import #s-users #s-user-check #s-filter-circle-xmark #s-download #s-upload #s-check #s-comment-dots
 #s-eye #s-pen #s-trash #s-receipt #s-ban
 avatar-soft-success avatar-soft-primary is-blue is-amber is-red is-teal
+#s-chart-simple #s-eye-slash #s-ellipsis-vertical
+badge-soft primary info success warning secondary is-gray is-debit is-credit is-zero
