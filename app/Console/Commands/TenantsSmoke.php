@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class TenantsSmoke extends Command
 {
-    protected $signature = 'tenants:smoke {tenant : Short name} {paths?* : Paths to open; default the pages of the menu}';
+    protected $signature = 'tenants:smoke {tenant : Short name} {paths?* : Paths to open; default the pages of the menu}
+        {--form=* : "METHOD path field=value&field=value" sent after the pages, inside one database transaction that is rolled back}';
 
     protected $description = 'Open the main pages of a Sarafi as its administrator and report errors';
 
@@ -76,6 +77,50 @@ class TenantsSmoke extends Command
             }
             $this->line(sprintf('%s  %5d ms  /%s  %s', $status, $ms, $path, $note));
             $kernel->terminate($request, $response);
+        }
+
+        // forms: sent as the administrator and undone afterwards, so nothing stays in the books
+        if ($this->option('form')) {
+            $this->laravel->bind(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, fn () => new class
+            {
+                public function handle($request, $next)
+                {
+                    return $next($request);
+                }
+            });
+            $tenancy->initialize($tenant);
+            $db = \Illuminate\Support\Facades\DB::connection();
+            $db->beginTransaction();
+            try {
+                foreach ($this->option('form') as $form) {
+                    [$method, $path, $fields] = array_pad(preg_split('/\s+/', trim($form), 3), 3, '');
+                    parse_str($fields, $data);
+                    // {last} in a path is the id of the newest account, for example the one just added
+                    $path = str_replace('{last}', (string) \App\Models\Account::query()->max('id'), $path);
+                    $tenancy->initialize($tenant);
+                    Auth::guard('web')->setUser($user);
+                    $request = Request::create($tenant->url($path), strtoupper($method), $data);
+                    $request->headers->set('referer', $tenant->url('admin/accounts'));
+                    $response = $kernel->handle($request);
+                    $status = $response->getStatusCode();
+                    $session = $request->hasSession() ? $request->session() : null;
+                    $flash = $session ? ($session->get('success') ?? $session->get('error')) : null;
+                    $errors = $session?->get('errors')?->all() ?? [];
+                    $e = $response->exception ?? null;
+                    if ($status >= 400 || $errors) {
+                        $failed++;
+                    }
+                    $this->line(sprintf('%s  %s /%s  %s%s%s', $status, strtoupper($method), $path,
+                        $flash ? '"'.$flash.'"' : '',
+                        $errors ? ' errors: '.implode(' | ', $errors) : '',
+                        $e ? ' '.class_basename($e).': '.mb_substr($e->getMessage(), 0, 200) : ''));
+                    $kernel->terminate($request, $response);
+                }
+            } finally {
+                $tenancy->initialize($tenant);
+                \Illuminate\Support\Facades\DB::connection()->rollBack();
+                $this->line('(the forms were undone)');
+            }
         }
 
         $this->line($failed ? "$failed page(s) failed." : 'Every page opened.');

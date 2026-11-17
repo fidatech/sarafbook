@@ -34,13 +34,113 @@ use Spatie\Browsershot\Browsershot;
 
 class AccountsController extends Controller
 {
-    public function index()
+    /**
+     * The list of accounts, drawn on the server: search, type, currency and balance filters,
+     * pages of 10 to 100, and the totals of the filtered accounts by currency. Balances come
+     * from account_balances, which every posting keeps up to date, so a page needs a handful
+     * of queries whatever the number of accounts.
+     */
+    public function index(Request $request)
     {
-        $accountCategories = AccountCategory::all();
-        $currencies = Currency::where('is_active', 1)->get();
-        $accountSubCategories = AccountSubCategory::get();
+        $subCategories = AccountSubCategory::with('accountCategory')->orderBy('id')->get();
+        $currencies = Currency::orderBy('id')->get()->keyBy('id');
+        $cashCategoryId = AccountCategory::where('name', 'Cash')->value('id');
 
-        return view('admin.accounts.index', compact('accountCategories', 'currencies', 'accountSubCategories'));
+        $search = trim((string) $request->query('q', ''));
+        $type = $request->integer('type') ?: null;
+        $currencyId = $request->integer('currency') ?: null;
+        $balance = in_array($request->query('balance'), ['creditors', 'debtors', 'mixed'], true) ? $request->query('balance') : null;
+        $perPage = in_array($request->integer('per_page'), [10, 25, 50, 100], true) ? $request->integer('per_page') : 25;
+
+        $filtered = function () use ($search, $type) {
+            return Account::query()
+                ->where('accounts.is_active', true)
+                ->when($type, fn ($q) => $q->where('accounts.account_sub_category_id', $type))
+                ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
+                    ->where('accounts.name', 'like', "%{$search}%")
+                    ->orWhere('accounts.code', 'like', "%{$search}%")
+                    ->orWhere('accounts.contact', 'like', "%{$search}%")));
+        };
+
+        $query = $filtered()->select('accounts.*')->with(['subCategory.accountCategory', 'user:id,username']);
+
+        if ($balance && $currencyId) {
+            $query->join('account_balances as ab', fn ($j) => $j->on('ab.account_id', '=', 'accounts.id')->where('ab.currency_id', $currencyId));
+            match ($balance) {
+                'creditors' => $query->where('ab.balance', '>', 0)->orderByDesc('ab.balance'),
+                'debtors' => $query->where('ab.balance', '<', 0)->orderBy('ab.balance'),
+                'mixed' => $query->whereIn('accounts.id', $this->mixedAccountIds())->orderByDesc('ab.balance'),
+            };
+        } elseif ($balance) {
+            // across currencies an account is judged by its largest balance, whichever side it is on
+            $dominant = DB::table('account_balances')
+                ->selectRaw('account_id,
+                    MAX(CASE WHEN balance > 0 THEN balance ELSE 0 END) AS max_pos,
+                    MIN(CASE WHEN balance < 0 THEN balance ELSE 0 END) AS min_neg,
+                    SUM(CASE WHEN balance > 0 THEN 1 ELSE 0 END) AS pos_count,
+                    SUM(CASE WHEN balance < 0 THEN 1 ELSE 0 END) AS neg_count')
+                ->groupBy('account_id');
+            $query->joinSub($dominant, 'dom', 'dom.account_id', '=', 'accounts.id');
+            $value = DB::raw('CASE WHEN dom.max_pos >= -dom.min_neg THEN dom.max_pos ELSE dom.min_neg END');
+            match ($balance) {
+                'creditors' => $query->whereRaw('dom.max_pos >= -dom.min_neg AND dom.max_pos > 0')->orderByDesc($value),
+                'debtors' => $query->whereRaw('-dom.min_neg > dom.max_pos')->orderBy($value),
+                'mixed' => $query->where('dom.pos_count', '>', 0)->where('dom.neg_count', '>', 0)->orderByDesc($value),
+            };
+        } else {
+            $query->orderByDesc('accounts.created_at')->orderByDesc('accounts.id');
+        }
+
+        $accounts = $query->paginate($perPage)->withQueryString();
+
+        $balances = AccountBalance::query()
+            ->whereIn('account_id', $accounts->pluck('id'))
+            ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
+            ->where('balance', '!=', 0)
+            ->orderBy('currency_id')
+            ->get(['account_id', 'currency_id', 'balance'])
+            ->groupBy('account_id');
+
+        // totals of the filtered accounts; without a type, the cash accounts (safe, profit and
+        // loss, expenses) are left out, because adding them to customers would mean nothing
+        $statsQuery = $filtered()->when(! $type && $cashCategoryId, fn ($q) => $q->whereHas(
+            'subCategory', fn ($s) => $s->where('account_category_id', '!=', $cashCategoryId)
+        ));
+        $accountCount = (clone $statsQuery)->count();
+        $totals = DB::table('account_balances as ab')
+            ->join('currencies as c', 'c.id', '=', 'ab.currency_id')
+            ->whereIn('ab.account_id', (clone $statsQuery)->select('accounts.id'))
+            ->when($currencyId, fn ($q) => $q->where('ab.currency_id', $currencyId))
+            ->groupBy('c.id', 'c.code')
+            ->orderBy('c.id')
+            ->selectRaw('c.code,
+                SUM(CASE WHEN ab.balance > 0 THEN ab.balance ELSE 0 END) AS we_owe,
+                SUM(CASE WHEN ab.balance < 0 THEN -ab.balance ELSE 0 END) AS owed_to_us,
+                SUM(ab.balance) AS net,
+                SUM(CASE WHEN ab.balance > 0 THEN 1 ELSE 0 END) AS creditor_count,
+                SUM(CASE WHEN ab.balance < 0 THEN 1 ELSE 0 END) AS debtor_count')
+            ->havingRaw('SUM(ABS(ab.balance)) > 0')
+            ->get();
+
+        return view('admin.accounts.index', [
+            'accounts' => $accounts,
+            'balances' => $balances,
+            'currencies' => $currencies,
+            'subCategories' => $subCategories,
+            'cashCategoryId' => $cashCategoryId,
+            'accountCount' => $accountCount,
+            'totals' => $totals,
+            'filters' => ['q' => $search, 'type' => $type, 'currency' => $currencyId, 'balance' => $balance, 'per_page' => $perPage],
+        ]);
+    }
+
+    /** Accounts with money on both sides: a positive balance in one currency and a negative one in another. */
+    private function mixedAccountIds()
+    {
+        return DB::table('account_balances')
+            ->select('account_id')
+            ->groupBy('account_id')
+            ->havingRaw('SUM(CASE WHEN balance > 0 THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN balance < 0 THEN 1 ELSE 0 END) > 0');
     }
 
     public function downloadImportTemplate()
@@ -1269,12 +1369,22 @@ class AccountsController extends Controller
             );
         }
 
+        if (! $request->expectsJson()) {
+            return back()->with('success', __('accounts.account_updated'));
+        }
+
         return response()->json(['success' => true]);
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        $account = Account::findOrFail($id);
+        $account = Account::with('subCategory')->findOrFail($id);
+
+        // the cash accounts (safe, profit and loss, expenses) are never deleted, as the list already showed
+        $cashCategoryId = AccountCategory::where('name', 'Cash')->value('id');
+        if ($cashCategoryId && (int) $account->subCategory?->account_category_id === (int) $cashCategoryId) {
+            abort(403, __('accounts.delete_failed'));
+        }
 
         try {
 
@@ -1300,6 +1410,10 @@ class AccountsController extends Controller
                 'deleted'
             );
 
+            if (! $request->expectsJson()) {
+                return back()->with('success', __('accounts.deleted_related'));
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => __('accounts.deleted_related')
@@ -1307,6 +1421,10 @@ class AccountsController extends Controller
         } catch (Exception $e) {
 
             Log::error('Account deletion error: ' . $e->getMessage());
+
+            if (! $request->expectsJson()) {
+                return back()->with('error', __('accounts.delete_failed'));
+            }
 
             return response()->json([
                 'success' => false,

@@ -1,250 +1,467 @@
 @extends('layouts.admin.base')
-
 @section('title', __('ui.accounts'))
+@section('modern', '1')
 
-@section('css')
-    <link rel="stylesheet" href="{{ asset('assets/offline/ab1e55b05f962f8e.css') }}">
-    <link href="{{ asset('assets/offline/9d2842cf83f43d76.css') }}" rel="stylesheet" />
-    <style>
-        .avatar-circle {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: #fff;
-            text-align: center;
-            font-size: 0.75rem;
-        }
-
-        .toast-container {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 1055;
-        }
-
-        .avatar.avatar-initial {
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            width: 44px;
-            height: 44px;
-            font-size: 20px;
-        }
-    </style>
-@endsection
+{{--
+    Accounts, in the design of Fida Sarafi: page header, totals by currency, one card with the
+    filters and the list, and one pop-up for adding or changing an account. Everything is drawn
+    on the server; the filters are an ordinary GET form, so a link keeps them.
+--}}
+@php
+    $user = auth()->user();
+    $canCreate = $user->can('create customers');
+    $canUpdate = $user->can('update customers');
+    $canDelete = $user->can('delete customers');
+    $canMessage = $user->can('send-whatsapp customers');
+    $typeName = fn ($sub) => __('accounts.types')[$sub?->name ?? ''] ?? ($sub?->name ?? '—');
+    $typePlural = fn ($sub) => __('accounts.types_plural')[$sub->name] ?? $sub->name;
+    $filtered = $filters['q'] !== '' || $filters['type'] || $filters['currency'] || $filters['balance'];
+    $shownType = $filters['type'] ? $subCategories->firstWhere('id', $filters['type']) : null;
+    $modalOld = old('_modal');
+@endphp
 
 @section('content')
-    <div class="toast-container">
-        @if (session('success'))
-            <div class="toast align-items-center text-bg-success show border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body">{{ session('success') }}</div>
-                    <button type="button" class="btn-close btn-close-white m-auto me-2" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        @endif
-        @if (session('error'))
-            <div class="toast align-items-center text-bg-danger show border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body">{{ session('error') }}</div>
-                    <button type="button" class="btn-close btn-close-white m-auto me-2" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        @endif
-    </div>
+<x-page-header :title="__('ui.accounts')" icon="address-book" :subtitle="__('Customers, Sarafs and the cash accounts, with their balance in every currency.')">
+    @if ($canCreate)
+        <button class="btn btn-outline-soft" type="button" data-bs-toggle="modal" data-bs-target="#importModal"><x-icon name="file-import" class="me-1" /> {{ __('ui.bulk_import') }}</button>
+        <button class="btn btn-primary" type="button" data-account-new><x-icon name="plus" class="me-1" /> {{ __('ui.create_account') }}</button>
+    @endif
+</x-page-header>
 
-    <div class="row g-4 mb-4">
-        @php
-            $stats = [
-                ['label' => __('ui.total_accounts'), 'id' => 'total_accounts', 'icon' => 'bi-people-fill', 'bg' => 'primary', 'border' => 'success'],
-                ['label' => __('ui.total_credit'), 'id' => 'total_credit', 'icon' => 'bi-cash-coin', 'bg' => 'success', 'border' => 'primary'],
-                ['label' => __('ui.total_debit'), 'id' => 'total_debit', 'icon' => 'bi-cash-stack', 'bg' => 'danger', 'border' => 'danger'],
-                ['label' => __('ui.balance'), 'id' => 'balance', 'icon' => 'bi-wallet', 'bg' => 'warning', 'border' => 'dark'],
-            ];
-        @endphp
-
-        @foreach ($stats as $stat)
-            <div class="col-md-6 col-xl-3">
-                <div class="card card-border-shadow-{{ $stat['border'] }} shadow-sm">
-                    <div class="card-body d-flex justify-content-between align-items-center">
-                        <div>
-                            <small class="text-muted">{{ $stat['label'] }}</small>
-                            <h5 class="fw-semibold mb-0" id="{{ $stat['id'] }}">0</h5>
-                        </div>
-                        <span class="avatar avatar-initial bg-label-{{ $stat['bg'] }} rounded-circle">
-                            <i class="bi {{ $stat['icon'] }}"></i>
-                        </span>
-                    </div>
-                </div>
-            </div>
-        @endforeach
-    </div>
-
-    <div class="card shadow-sm">
-        <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-start flex-wrap gap-3">
-            <div class="d-flex w-100 flex-wrap gap-2">
-
-                {{-- Search --}}
-                <div class="flex-fill" style="min-width: 250px;">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control rounded-start-0" id="search" placeholder="{{ __('ui.search') }}...">
-                        <button class="btn btn-outline-secondary" id="search-btn">
-                            <i class="bi bi-arrow-right"></i>
-                        </button>
-                    </div>
-                </div>
-
-                {{-- Account Type --}}
-                <div class="flex-fill" style="min-width: 200px;">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-diagram-3"></i></span>
-                        <select id="account_type" class="rounded-start-0 form-select">
-                            <option value="">{{ __('ui.type') }}</option>
-                            @foreach ($accountSubCategories as $item)
-                                <option value="{{ $item->id }}">{{ __('accounts.types_plural')[$item->name] ?? Str::plural($item->name) }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-
-                {{-- Currency --}}
-                <div class="flex-fill" style="min-width: 160px;">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-currency-dollar"></i></span>
-                        <select id="currency_id" class="rounded-start-0 form-select">
-                            <option value="">{{ __('ui.all') }}</option>
-                            @foreach ($currencies as $currency)
-                                <option value="{{ $currency->id }}">{{ $currency->code }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-
-                {{-- Balance Filter --}}
-                <div class="flex-fill" style="min-width: 220px;">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-filter-circle"></i></span>
-                        <select id="balance_filter" class="rounded-start-0 form-select">
-                            <option value="">{{ __('ui.all_no_balance_order') }}</option>
-                            <option value="creditors">{{ __('ui.creditors_largest_first') }}</option>
-                            <option value="debtors">{{ __('ui.debtors_most_negative') }}</option>
-                            <option value="mixed">{{ __('ui.mixed_balances') }}</option>
-                        </select>
-                    </div>
-                </div>
-
-                {{-- Per Page --}}
-                <div style="width: 120px;">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="bi bi-list-nested"></i></span>
-                        <select id="per-page" class="rounded-start-0 form-select">
-                            <option value="10">10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
-                </div>
-
-                {{-- Create Button --}}
-                <div class="d-flex gap-2">
-                    @can('create customers')
-                        <button class="btn btn-outline-primary d-flex align-items-center gap-2" type="button"
-                                data-bs-toggle="modal" data-bs-target="#bulkAccountImportModal">
-                            <i class="bi bi-file-earmark-spreadsheet"></i>
-                            <span>{{ __('ui.bulk_import') }}</span>
-                        </button>
-                    @endcan
-                </div>
-                <div style="width: 180px;" class="mt-md-0 float-end mt-5">
-                    <div class="input-group">
-                        @can('create customers')
-                        <button class="btn btn-primary d-flex align-items-center btn-block" style="height: 48px;"
-                                data-bs-toggle="offcanvas" data-bs-target="#offcanvasAddUser">
-                            <i class="bi bi-plus-circle"></i>
-                            <span>{{ __('ui.create_account') }}</span>
-                        </button>
-                        @endcan
-                    </div>
-                </div>
-
+{{-- totals of the accounts the filters show --}}
+<div class="row g-3 mb-3">
+    <div class="col-12 col-lg-3">
+        <div class="card h-100 mb-0">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-3"><span class="sc-icon icon-soft primary"><x-icon name="users" /></span><span class="fw-semibold">{{ __('ui.total_accounts') }}</span></div>
+                <div class="acc-count" dir="ltr">{{ number_format($accountCount) }}</div>
+                <div class="text-muted small mt-1">{{ $shownType ? $typePlural($shownType) : __('Customers and Sarafs') }}</div>
             </div>
         </div>
+    </div>
+    <div class="col-12 col-lg-9">
+        <div class="card h-100 mb-0">
+            <div class="card-header"><h2 class="h5 card-title mb-0">{{ __('Balances by currency') }}</h2><span class="text-muted small">{{ $shownType ? $typePlural($shownType) : __('Customers and Sarafs') }}</span></div>
+            <div class="card-body">
+                @if ($totals->isEmpty())
+                    <p class="text-muted mb-0">{{ __('No balance yet.') }}</p>
+                @else
+                    <div class="table-responsive">
+                        <table class="table w-100 mb-0 keep-table acc-totals">
+                            <thead><tr><th>{{ __('ui.currency') }}</th><th class="text-end">{{ __('They owe us') }}</th><th class="text-end">{{ __('We owe them') }}</th><th class="text-end">{{ __('Net') }}</th></tr></thead>
+                            <tbody>
+                                @foreach ($totals as $row)
+                                    <tr>
+                                        <th scope="row"><span class="acc-code">{{ $row->code }}</span></th>
+                                        <td class="text-end text-nowrap" dir="ltr"><span class="acc-debit">{{ format_amount($row->owed_to_us, 2) }}</span> <small class="text-muted">· {{ (int) $row->debtor_count }}</small></td>
+                                        <td class="text-end text-nowrap" dir="ltr"><span class="acc-credit">{{ format_amount($row->we_owe, 2) }}</span> <small class="text-muted">· {{ (int) $row->creditor_count }}</small></td>
+                                        <td class="text-end text-nowrap fw-semibold" dir="ltr"><span class="{{ $row->net < 0 ? 'acc-debit' : 'acc-credit' }}">{{ format_amount($row->net, 2) }}</span></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
 
-        <div class="table-responsive p-3">
-            <table class="table table-bordered table-hover text-nowrap table-responsive" id="yajra-datatable">
-                <thead class="table-light">
+<div class="card">
+    <div class="card-body">
+        <form method="GET" class="row g-2 mb-2" role="search" id="accountFilters">
+            <div class="col-12 col-md">
+                <input type="search" class="form-control" name="q" value="{{ $filters['q'] }}" placeholder="{{ __('Name, code or phone…') }}" aria-label="{{ __('ui.search') }}">
+            </div>
+            <div class="col-6 col-md-auto">
+                <select class="form-select" name="type" aria-label="{{ __('ui.type') }}" data-autosubmit>
+                    <option value="">{{ __('All types') }}</option>
+                    @foreach ($subCategories as $sub)
+                        <option value="{{ $sub->id }}" @selected($filters['type'] === $sub->id)>{{ $typePlural($sub) }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-6 col-md-auto">
+                <select class="form-select" name="currency" aria-label="{{ __('ui.currency') }}" data-autosubmit>
+                    <option value="">{{ __('All currencies') }}</option>
+                    @foreach ($currencies->where('is_active', true) as $currency)
+                        <option value="{{ $currency->id }}" @selected($filters['currency'] === $currency->id)>{{ $currency->code }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-8 col-md-auto">
+                <select class="form-select" name="balance" aria-label="{{ __('ui.balance') }}" data-autosubmit>
+                    <option value="">{{ __('Newest first') }}</option>
+                    <option value="debtors" @selected($filters['balance'] === 'debtors')>{{ __('They owe us, largest first') }}</option>
+                    <option value="creditors" @selected($filters['balance'] === 'creditors')>{{ __('We owe them, largest first') }}</option>
+                    <option value="mixed" @selected($filters['balance'] === 'mixed')>{{ __('Both sides') }}</option>
+                </select>
+            </div>
+            <div class="col-4 col-md-auto">
+                <select class="form-select" name="per_page" aria-label="{{ __('Rows on a page') }}" data-autosubmit>
+                    @foreach ([10, 25, 50, 100] as $size)
+                        <option value="{{ $size }}" @selected($filters['per_page'] === $size)>{{ $size }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-light-secondary" type="submit" title="{{ __('ui.search') }}" aria-label="{{ __('ui.search') }}"><x-icon name="magnifying-glass" /></button>
+                @if ($filtered)
+                    <a class="btn btn-light-secondary" href="{{ route('admin.accounts.index') }}" title="{{ __('Clear the filters') }}" aria-label="{{ __('Clear the filters') }}"><x-icon name="filter-circle-xmark" /></a>
+                @endif
+            </div>
+        </form>
+
+        <p class="acc-legend small text-muted mb-3">
+            <span><i class="acc-dot is-debit" aria-hidden="true"></i> {{ __('They owe us') }}</span>
+            <span><i class="acc-dot is-credit" aria-hidden="true"></i> {{ __('We owe them') }}</span>
+            @if ($accounts->total())
+                <span class="ms-auto">{{ __(':from–:to of :total', ['from' => number_format($accounts->firstItem()), 'to' => number_format($accounts->lastItem()), 'total' => number_format($accounts->total())]) }}</span>
+            @endif
+        </p>
+
+        @if ($accounts->isEmpty())
+            <div class="empty-state">
+                <div class="es-icon"><x-icon name="address-book" /></div>
+                <h2 class="h3">{{ $filtered ? __('Nothing found') : __('No account yet') }}</h2>
+                @if ($canCreate && ! $filtered)
+                    <p>{{ __('Press ":button" to add the first one.', ['button' => __('ui.create_account')]) }}</p>
+                @endif
+            </div>
+        @else
+            <table class="table table-hover w-100 acc-table">
+                <thead>
                     <tr>
-                        <th>#</th>
                         <th>{{ __('ui.account_name') }}</th>
                         <th>{{ __('ui.type') }}</th>
-                        <th>{{ __('ui.details') }}</th>
-                        <th>{{ __('ui.balance') }}</th>
-                        <th style="width: 200px;">{{ __('ui.actions') }}</th>
+                        <th>{{ __('ui.contact') }}</th>
+                        <th class="text-end">{{ __('ui.balance') }}</th>
+                        <th class="text-end no-print">{{ __('ui.actions') }}</th>
                     </tr>
                 </thead>
+                <tbody>
+                    @foreach ($accounts as $account)
+                        @php
+                            $sub = $account->subCategory;
+                            $isCash = $cashCategoryId && (int) $sub?->account_category_id === (int) $cashCategoryId;
+                            $rows = $balances->get($account->id, collect());
+                            $url = route('admin.accounts.show', $account->id);
+                            $editJson = json_encode([
+                                'id' => $account->id, 'name' => $account->name, 'code' => $account->code,
+                                'type' => $account->account_sub_category_id, 'contact' => $account->contact,
+                                'address' => $account->address, 'note' => $account->company,
+                                'reports' => (bool) $account->include_in_reports,
+                            ], JSON_UNESCAPED_UNICODE);
+                        @endphp
+                        <tr>
+                            <td>
+                                <a class="acc-name" href="{{ $url }}">
+                                    <span class="avatar avatar-sm {{ $isCash ? 'avatar-soft-success' : 'avatar-soft-primary' }}" aria-hidden="true">{{ initial($account->name) }}</span>
+                                    <span class="min-w-0"><strong>{{ $account->name }}</strong><small dir="ltr">{{ $account->code }}</small></span>
+                                </a>
+                                @if ($account->user)
+                                    <span class="badge-soft info ms-1" title="{{ __('Has a login for the customer') }}"><x-icon name="user-check" /> {{ $account->user->username }}</span>
+                                @endif
+                            </td>
+                            <td>
+                                <span class="d-block">{{ $typeName($sub) }}</span>
+                                @unless ($account->include_in_reports)
+                                    <small class="text-muted">{{ __('Not in the reports') }}</small>
+                                @endunless
+                            </td>
+                            <td>
+                                @if (filled($account->contact))
+                                    <span class="d-block text-nowrap" dir="ltr">{{ $account->contact }}</span>
+                                @endif
+                                @if (filled($account->address))
+                                    <small class="text-muted acc-address">{{ $account->address }}</small>
+                                @endif
+                                @if (blank($account->contact) && blank($account->address))
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+                            <td class="text-end">
+                                @forelse ($rows as $b)
+                                    <div class="acc-balance {{ $b->balance < 0 ? 'acc-debit' : 'acc-credit' }}" dir="ltr" title="{{ $b->balance < 0 ? __('They owe us') : __('We owe them') }}">
+                                        {{ format_amount(abs($b->balance), 2) }} <span class="acc-code">{{ $currencies[$b->currency_id]->code ?? '' }}</span>
+                                    </div>
+                                @empty
+                                    <span class="text-muted">—</span>
+                                @endforelse
+                            </td>
+                            <td class="text-end text-nowrap no-print">
+                                <div class="act-group">
+                                    <x-act kind="view" :href="$url" />
+                                    @if ($canMessage && filled($account->contact))
+                                        <x-act kind="whatsapp" type="button" :label="__('Send the balance on WhatsApp')" data-whatsapp="{{ route('admin.accounts.send-whatsapp', $account->id) }}" />
+                                    @endif
+                                    @if ($canUpdate)
+                                        <x-act kind="edit" type="button" data-account-edit="{{ $editJson }}" />
+                                    @endif
+                                    @if ($canDelete && ! $isCash)
+                                        <form method="POST" action="{{ route('admin.accounts.destroy', $account->id) }}" class="d-inline"
+                                              data-confirm="{{ __('Delete :name?', ['name' => $account->name]) }}"
+                                              data-confirm-text="{{ __('The account and every transaction on it are deleted. This cannot be undone.') }}"
+                                              data-confirm-ok="{{ __('Delete') }}">
+                                            @csrf
+                                            @method('DELETE')
+                                            <x-act kind="delete" />
+                                        </form>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
             </table>
-        </div>
+            {{ $accounts->links('partials.pagination') }}
+        @endif
     </div>
+</div>
 
-    @include('admin.accounts.partials.create-form')
-    @include('admin.accounts.partials.create-user-modal')
-
-    <div class="modal fade" id="bulkAccountImportModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form method="POST" action="{{ route('admin.accounts.bulk-import') }}" enctype="multipart/form-data">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title"><i class="bi bi-file-earmark-spreadsheet me-2"></i>{{ __('ui.bulk_account_import') }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <div class="fw-semibold mb-1">{{ __('ui.import_instructions') }}</div>
-                            <div>{{ __('ui.import_optional_fields_help') }}</div>
-                            <div>{{ __('ui.import_balance_sign_help') }}</div>
-                            <div>{{ __('ui.import_atomic_help') }}</div>
-                        </div>
-                        <a class="btn btn-outline-secondary mb-4" href="{{ route('admin.accounts.bulk-import.template') }}">
-                            <i class="bi bi-download me-1"></i>{{ __('ui.download_excel_template') }}
-                        </a>
-                        <label class="form-label" for="accounts-import-file">{{ __('ui.csv_or_excel_file') }}</label>
-                        <input class="form-control" id="accounts-import-file" name="file" type="file" accept=".csv,.xlsx,.xls" required>
-                        <div class="form-text">{{ __('ui.import_file_help') }}</div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">{{ __('ui.cancel') }}</button>
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>{{ __('ui.import_accounts') }}</button>
-                    </div>
-                </form>
+@if ($canCreate || $canUpdate)
+{{-- one pop-up for a new account and for changing one --}}
+<div class="modal fade" id="accountModal" tabindex="-1" aria-labelledby="accountModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <form class="modal-content" method="POST" id="accountForm" action="{{ route('admin.accounts.store') }}"
+              data-store="{{ route('admin.accounts.store') }}" data-update="{{ url('admin/accounts') }}/" data-check="{{ route('admin.accounts.checkCode') }}">
+            @csrf
+            <input type="hidden" name="_method" value="POST" id="accountMethod">
+            <input type="hidden" name="_modal" value="create" id="accountModalKind">
+            <input type="hidden" name="_id" value="" id="accountId">
+            <input type="hidden" name="code" value="" id="accountCode">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="accountModalTitle" data-new="{{ __('ui.add_new_account') }}" data-edit="{{ __('accounts.edit_account') }}">{{ __('ui.add_new_account') }}</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Close') }}"></button>
             </div>
-        </div>
-    </div>
-
-    <!-- Fullscreen Modal -->
-    <div class="modal fade" id="accountPreviewModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-fullscreen">
-            <div class="modal-content bg-white">
-                <div class="modal-header">
-                    <h5 class="modal-title">{{ __('ui.account_summary') }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-body">
+                @if ($errors->any() && $modalOld)
+                    <div class="alert alert-danger py-2" role="alert">{{ $errors->first() }}</div>
+                @endif
+                <div class="mb-3">
+                    <label class="form-label" for="accountName">{{ __('ui.account_name') }}</label>
+                    <input class="form-control @error('name') is-invalid @enderror" id="accountName" name="name" value="{{ old('name') }}" maxlength="255" required>
                 </div>
-                <div class="modal-body p-0" id="accountPreviewContent" style="background: #f4f4f4;"></div>
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label" for="accountType">{{ __('ui.account_type') }}</label>
+                        <select class="form-select @error('create_account_sub_category_id') is-invalid @enderror" id="accountType" name="create_account_sub_category_id" required>
+                            <option value="" disabled @selected(! old('create_account_sub_category_id'))>{{ __('ui.select_account_type') }}</option>
+                            @foreach ($subCategories as $sub)
+                                <option value="{{ $sub->id }}" data-prefix="{{ strtoupper((string) $sub->accountCategory?->code_prefix) }}" @selected((string) old('create_account_sub_category_id') === (string) $sub->id)>{{ $typeName($sub) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="accountCodeSuffix">{{ __('ui.code') }}</label>
+                        <div class="input-group" dir="ltr">
+                            <span class="input-group-text" id="accountCodePrefix">#</span>
+                            <input class="form-control @error('code') is-invalid @enderror" id="accountCodeSuffix" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="accountCodeHelp">
+                        </div>
+                        <div class="form-text" id="accountCodeHelp" aria-live="polite">{{ __('Leave empty for the next number.') }}</div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="accountContact">{{ __('ui.contact') }}</label>
+                    <input class="form-control" id="accountContact" name="contact" type="tel" dir="ltr" value="{{ old('contact', '+93') }}" maxlength="255" autocomplete="off">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="accountAddress">{{ __('ui.address') }}</label>
+                    <textarea class="form-control" id="accountAddress" name="address" rows="2">{{ old('address') }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="accountNote">{{ __('ui.note') }}</label>
+                    <input class="form-control" id="accountNote" name="company" value="{{ old('company') }}" maxlength="255">
+                </div>
+                <input type="hidden" name="include_in_reports" value="0">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="accountReports" name="include_in_reports" value="1" @checked(old('include_in_reports', '1') === '1')>
+                    <label class="form-check-label" for="accountReports">{{ __('accounts.include_reports') }}</label>
+                </div>
             </div>
-        </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-secondary" data-bs-dismiss="modal">{{ __('ui.cancel') }}</button>
+                <button type="submit" class="btn btn-primary" id="accountSubmit"><x-icon name="check" class="me-1" /> {{ __('Save') }}</button>
+            </div>
+        </form>
     </div>
+</div>
+@endif
 
+@if ($canCreate)
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form class="modal-content" method="POST" action="{{ route('admin.accounts.bulk-import') }}" enctype="multipart/form-data">
+            @csrf
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="importModalTitle">{{ __('ui.bulk_account_import') }}</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <ol class="acc-steps">
+                    <li>
+                        <strong>{{ __('Download the template') }}</strong>
+                        <a class="btn btn-sm btn-outline-soft ms-2" href="{{ route('admin.accounts.bulk-import.template') }}" data-no-prefetch><x-icon name="download" class="me-1" /> {{ __('ui.download_excel_template') }}</a>
+                    </li>
+                    <li>
+                        <strong>{{ __('Fill it in') }}</strong>
+                        <ul class="small text-muted mt-1 mb-0">
+                            <li>{{ __('ui.import_instructions') }}</li>
+                            <li>{{ __('ui.import_optional_fields_help') }}</li>
+                            <li>{{ __('ui.import_balance_sign_help') }}</li>
+                            <li>{{ __('ui.import_atomic_help') }}</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <label class="form-label fw-semibold" for="importFile">{{ __('ui.csv_or_excel_file') }}</label>
+                        <input class="form-control" id="importFile" name="file" type="file" accept=".csv,.xlsx,.xls" required aria-describedby="importHelp">
+                        <div class="form-text" id="importHelp">{{ __('ui.import_file_help') }}</div>
+                    </li>
+                </ol>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-secondary" data-bs-dismiss="modal">{{ __('ui.cancel') }}</button>
+                <button type="submit" class="btn btn-primary"><x-icon name="upload" class="me-1" /> {{ __('ui.import_accounts') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
 @endsection
 
-@section('js')
-    @include('admin.accounts.partials.scripts')
-    <script>
-        document.querySelectorAll('.toast').forEach(toast => new bootstrap.Toast(toast).show());
-    </script>
-@endsection
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var text = {
+        checking: @json(__('ui.blade_checking')),
+        free: @json(__('ui.blade_code_is_available')),
+        taken: @json(__('ui.blade_code_already_exists')),
+        empty: @json(__('Leave empty for the next number.')),
+        needed: @json(__('An account that exists keeps a code; write one.')),
+        sent: @json(__('The message is ready in WhatsApp.')),
+        failed: @json(__('accounts.send_failed'))
+    };
+
+    // filters: a choice in a list applies at once
+    document.querySelectorAll('#accountFilters [data-autosubmit]').forEach(function (select) {
+        select.addEventListener('change', function () { select.form.requestSubmit(); });
+    });
+
+    var form = document.getElementById('accountForm');
+    if (form) {
+        var modalEl = document.getElementById('accountModal');
+        var title = document.getElementById('accountModalTitle');
+        var type = document.getElementById('accountType');
+        var prefix = document.getElementById('accountCodePrefix');
+        var suffix = document.getElementById('accountCodeSuffix');
+        var code = document.getElementById('accountCode');
+        var help = document.getElementById('accountCodeHelp');
+        var submit = document.getElementById('accountSubmit');
+        var editing = null, timer = null, request = 0;
+
+        var currentPrefix = function () {
+            var option = type.options[type.selectedIndex];
+            return (option && option.dataset.prefix) || '#';
+        };
+        var syncCode = function () {
+            suffix.value = suffix.value.toUpperCase().replace(/\s+/g, '');
+            prefix.textContent = currentPrefix();
+            code.value = suffix.value ? prefix.textContent + suffix.value : '';
+        };
+        var showHelp = function (state) {
+            suffix.classList.toggle('is-invalid', state === 'taken' || state === 'needed');
+            suffix.classList.toggle('is-valid', state === 'free');
+            help.textContent = text[state];
+            help.className = 'form-text' + (state === 'taken' || state === 'needed' ? ' text-danger' : state === 'free' ? ' text-success' : '');
+            submit.disabled = state === 'taken';
+        };
+        var checkCode = function () {
+            clearTimeout(timer);
+            syncCode();
+            if (!code.value) { showHelp(editing ? 'needed' : 'empty'); return; }
+            showHelp('checking');
+            var mine = ++request;
+            timer = setTimeout(function () {
+                var url = form.dataset.check + '?code=' + encodeURIComponent(code.value) + (editing ? '&ignore_id=' + editing : '');
+                fetch(url, { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) { if (mine === request) showHelp(d.available ? 'free' : 'taken'); })
+                    .catch(function () { if (mine === request) showHelp('empty'); });
+            }, 300);
+        };
+        type.addEventListener('change', checkCode);
+        suffix.addEventListener('input', checkCode);
+
+        var open = function (data) {
+            editing = data ? data.id : null;
+            form.reset();
+            form.action = data ? form.dataset.update + data.id : form.dataset.store;
+            document.getElementById('accountMethod').value = data ? 'PUT' : 'POST';
+            document.getElementById('accountModalKind').value = data ? 'edit' : 'create';
+            document.getElementById('accountId').value = data ? data.id : '';
+            title.textContent = data ? title.dataset.edit : title.dataset.new;
+            form.querySelectorAll('.is-invalid,.is-valid').forEach(function (el) { el.classList.remove('is-invalid', 'is-valid'); });
+            var alert = form.querySelector('.alert-danger'); if (alert) alert.remove();
+            if (data) {
+                document.getElementById('accountName').value = data.name || '';
+                type.value = data.type || '';
+                document.getElementById('accountContact').value = data.contact || '';
+                document.getElementById('accountAddress').value = data.address || '';
+                document.getElementById('accountNote').value = data.note || '';
+                document.getElementById('accountReports').checked = !!data.reports;
+                var p = currentPrefix(), c = data.code || '';
+                suffix.value = c.indexOf(p) === 0 ? c.slice(p.length) : c;
+            } else {
+                document.getElementById('accountContact').value = '+93';
+                document.getElementById('accountReports').checked = true;
+                suffix.value = '';
+            }
+            syncCode();
+            showHelp(data ? 'free' : 'empty');
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        };
+        modalEl.addEventListener('shown.bs.modal', function () { document.getElementById('accountName').focus(); });
+        document.querySelectorAll('[data-account-new]').forEach(function (b) { b.addEventListener('click', function () { open(null); }); });
+        document.querySelectorAll('[data-account-edit]').forEach(function (b) {
+            b.addEventListener('click', function () { open(JSON.parse(b.dataset.accountEdit)); });
+        });
+        form.addEventListener('submit', function (e) {
+            syncCode();
+            if (editing && !code.value) { e.preventDefault(); showHelp('needed'); suffix.focus(); }
+        });
+
+        // the form came back with an error: open it again as it was
+        @if ($modalOld)
+            editing = @json(old('_id') ?: null);
+            form.action = editing ? form.dataset.update + editing : form.dataset.store;
+            document.getElementById('accountMethod').value = editing ? 'PUT' : 'POST';
+            document.getElementById('accountModalKind').value = editing ? 'edit' : 'create';
+            document.getElementById('accountId').value = editing || '';
+            title.textContent = editing ? title.dataset.edit : title.dataset.new;
+            (function () { var p = currentPrefix(), c = @json(old('code', '')); suffix.value = c.indexOf(p) === 0 ? c.slice(p.length) : c; syncCode(); })();
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        @endif
+    }
+
+    // WhatsApp: the window is opened at once (so it is not blocked) and sent to the message when it is ready
+    document.querySelectorAll('[data-whatsapp]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var win = window.open('about:blank', '_blank');
+            button.disabled = true;
+            fetch(button.dataset.whatsapp, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                .then(function (res) {
+                    if (!res.ok || !res.d.url) throw new Error(res.d.error || text.failed);
+                    if (win) win.location = res.d.url; else window.location = res.d.url;
+                    if (window.ERP && ERP.toast) ERP.toast(text.sent, 'success');
+                })
+                .catch(function (e) {
+                    if (win) win.close();
+                    if (window.ERP && ERP.toast) ERP.toast(e.message || text.failed, 'danger');
+                })
+                .finally(function () { button.disabled = false; });
+        });
+    });
+});
+</script>
+@endpush

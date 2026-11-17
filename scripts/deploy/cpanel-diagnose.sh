@@ -18,7 +18,12 @@ if [ -n "${SMOKE_TENANT:-}" ]; then
         [ -n "$candidate" ] && [ -x "$candidate" ] && PHP="$candidate" && break
     done
     echo "== pages of $SMOKE_TENANT opened as its administrator"
-    (cd "$APP" && "$PHP" artisan tenants:smoke "$SMOKE_TENANT" ${SMOKE_PATHS:-} --no-interaction 2>&1 | sed -E "s#$HOME/##g" | cut -c1-420) || true
+    forms=()
+    if [ -n "${SMOKE_FORMS:-}" ]; then
+        IFS=';' read -ra parts <<< "$SMOKE_FORMS"
+        for part in "${parts[@]}"; do forms+=("--form=$part"); done
+    fi
+    (cd "$APP" && "$PHP" artisan tenants:smoke "$SMOKE_TENANT" ${SMOKE_PATHS:-} "${forms[@]}" --no-interaction 2>&1 | sed -E "s#$HOME/##g" | cut -c1-420) || true
 fi
 LOG=$(ls -t "$APP"/storage/logs/*.log 2>/dev/null | head -1)
 [ -n "$LOG" ] || { echo "No log file yet."; exit 0; }
