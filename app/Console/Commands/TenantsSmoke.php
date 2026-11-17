@@ -115,6 +115,11 @@ class TenantsSmoke extends Command
                     parse_str($fields, $data);
                     // {last} in a path is the id of the newest account, for example the one just added
                     $path = str_replace('{last}', (string) \App\Models\Account::query()->max('id'), $path);
+                    // {customer}, {customer2} and {saraf}, {saraf2}: accounts of those types, in fields and paths
+                    $ids = fn ($sub) => \App\Models\Account::query()->where('account_sub_category_id', $sub)->orderBy('id')->limit(2)->pluck('id')->all();
+                    $map = ['{customer}' => $ids(1)[0] ?? 0, '{customer2}' => $ids(1)[1] ?? 0, '{saraf}' => $ids(2)[0] ?? 0, '{saraf2}' => $ids(2)[1] ?? 0, '{exchange}' => (int) \App\Models\Exchange::query()->max('id'), '{remittance}' => (int) \App\Models\Remittance::query()->where('status', 'pending')->max('id')];
+                    $path = strtr($path, $map);
+                    array_walk_recursive($data, function (&$v) use ($map) { $v = is_string($v) ? strtr($v, $map) : $v; });
                     $tenancy->initialize($tenant);
                     Auth::guard('web')->setUser($user);
                     $request = Request::create($tenant->url($path), strtoupper($method), $data);
