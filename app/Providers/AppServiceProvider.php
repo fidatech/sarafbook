@@ -22,6 +22,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(Tenancy::class);
 
+        // pages loaded ahead of time read the session but never write it (docs/SPEED.md)
+        $this->app->singleton(\Illuminate\Session\Middleware\StartSession::class, fn ($app) => new \App\Http\Middleware\StartSession(
+            $app->make(\Illuminate\Session\SessionManager::class),
+            fn () => $app->make(\Illuminate\Contracts\Cache\Factory::class),
+        ));
+
         // Company settings of the Sarafi, read once for a request.
         $this->app->scoped('view.company-settings', fn () => (object) [
             'value' => $this->inTenantContext() ? \App\Models\Setting::first() : null,

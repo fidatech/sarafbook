@@ -88,6 +88,13 @@ class AccountsController extends Controller
                 'mixed' => $query->where('dom.pos_count', '>', 0)->where('dom.neg_count', '>', 0)->orderByDesc($value),
             };
         } else {
+            // customers and Sarafs first, the cash accounts (safe, profit and loss, expenses) after them
+            if ($cashCategoryId && ! $type) {
+                $query->orderByRaw(
+                    '(SELECT CASE WHEN s.account_category_id = ? THEN 1 ELSE 0 END FROM account_sub_categories s WHERE s.id = accounts.account_sub_category_id)',
+                    [$cashCategoryId]
+                );
+            }
             $query->orderByDesc('accounts.created_at')->orderByDesc('accounts.id');
         }
 
@@ -115,6 +122,9 @@ class AccountsController extends Controller
             'subCategory', fn ($s) => $s->where('account_category_id', '!=', $cashCategoryId)
         ));
         $accountCount = (clone $statsQuery)->count();
+        $cashCount = $type || ! $cashCategoryId ? 0 : $filtered()->whereHas(
+            'subCategory', fn ($s) => $s->where('account_category_id', $cashCategoryId)
+        )->count();
         $totals = DB::table('account_balances as ab')
             ->join('currencies as c', 'c.id', '=', 'ab.currency_id')
             ->whereIn('ab.account_id', (clone $statsQuery)->select('accounts.id'))
@@ -138,6 +148,8 @@ class AccountsController extends Controller
             'subCategories' => $subCategories,
             'cashCategoryId' => $cashCategoryId,
             'accountCount' => $accountCount,
+            'cashCount' => $cashCount,
+            'groupCash' => ! $balance && ! $type && $cashCategoryId,
             'totals' => $totals,
             'filters' => ['q' => $search, 'type' => $type, 'currency' => $currencyId, 'balance' => $balance, 'per_page' => $perPage],
         ]);

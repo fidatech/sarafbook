@@ -21,7 +21,7 @@
 @endphp
 
 @section('content')
-<x-page-header :title="__('ui.accounts')" icon="address-book" :subtitle="__('Customers, Sarafs and the cash accounts, with their balance in every currency.')">
+<x-page-header :title="__('ui.accounts')" icon="address-book" :subtitle="__('Every balance, in every currency.')">
     <button class="btn btn-outline-soft acc-toggle" type="button" id="summaryToggle" aria-controls="accSummary" aria-expanded="true">
         <x-icon name="chart-simple" class="me-1" /> <span data-when="open">{{ __('Hide totals') }}</span><span data-when="closed">{{ __('Show totals') }}</span>
     </button>
@@ -32,44 +32,52 @@
 </x-page-header>
 
 {{-- totals of the accounts the filters show; the toggle above hides them, and the choice is remembered --}}
-<div class="row g-3 mb-3" id="accSummary">
-    <div class="col-12 col-lg-3">
-        <div class="card h-100 mb-0">
-            <div class="card-body">
-                <div class="d-flex align-items-center gap-2 mb-3"><span class="sc-icon icon-soft primary"><x-icon name="users" /></span><span class="fw-semibold">{{ __('ui.total_accounts') }}</span></div>
-                <div class="acc-count" dir="ltr">{{ number_format($accountCount) }}</div>
-                <div class="text-muted small mt-1">{{ $shownType ? $typePlural($shownType) : __('Customers and Sarafs') }}</div>
-            </div>
+<section class="card mb-3 acc-summary" id="accSummary" aria-labelledby="accSummaryTitle">
+    <div class="card-header">
+        <div>
+            <h2 class="h5 card-title mb-0" id="accSummaryTitle">{{ __('Balances by currency') }}</h2>
+            <span class="text-muted small">{{ $shownType ? $typePlural($shownType) : __('Customers and Sarafs, without the cash accounts') }}</span>
+        </div>
+        <div class="acc-counts">
+            <span><strong dir="ltr">{{ number_format($accountCount) }}</strong> {{ $shownType ? $typePlural($shownType) : __('Customers and Sarafs') }}</span>
+            @if ($cashCount)
+                <span><strong dir="ltr">{{ number_format($cashCount) }}</strong> {{ __('Cash accounts') }}</span>
+            @endif
         </div>
     </div>
-    <div class="col-12 col-lg-9">
-        <div class="card h-100 mb-0">
-            <div class="card-header"><h2 class="h5 card-title mb-0">{{ __('Balances by currency') }}</h2><span class="text-muted small">{{ $shownType ? $typePlural($shownType) : __('Customers and Sarafs') }}</span></div>
-            <div class="card-body">
-                @if ($totals->isEmpty())
-                    <p class="text-muted mb-0">{{ __('No balance yet.') }}</p>
-                @else
-                    <div class="table-responsive">
-                        <table class="table w-100 mb-0 keep-table acc-totals">
-                            <thead><tr><th>{{ __('ui.currency') }}</th><th class="text-end">{{ __('They owe us') }}</th><th class="text-end">{{ __('We owe them') }}</th><th class="text-end">{{ __('Net') }}</th></tr></thead>
-                            <tbody>
-                                @foreach ($totals as $row)
-                                    <tr>
-                                        <th scope="row"><span class="acc-code">{{ $row->code }}</span></th>
-                                        <td class="text-end text-nowrap" dir="ltr"><span class="acc-debit">{{ format_amount($row->owed_to_us, 2) }}</span> <small class="text-muted">· {{ (int) $row->debtor_count }}</small></td>
-                                        <td class="text-end text-nowrap" dir="ltr"><span class="acc-credit">{{ format_amount($row->we_owe, 2) }}</span> <small class="text-muted">· {{ (int) $row->creditor_count }}</small></td>
-                                        <td class="text-end text-nowrap fw-semibold" dir="ltr"><span class="{{ $row->net < 0 ? 'acc-debit' : 'acc-credit' }}">{{ format_amount($row->net, 2) }}</span></td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
+    <div class="card-body">
+        @if ($totals->isEmpty())
+            <p class="text-muted mb-0">{{ __('No balance yet.') }}</p>
+        @else
+            <div class="table-responsive d-none d-md-block">
+                <table class="table w-100 mb-0 keep-table acc-totals">
+                    <thead><tr><th scope="col">{{ __('ui.currency') }}</th><th scope="col" class="text-end">{{ __('They owe us') }}</th><th scope="col" class="text-end">{{ __('We owe them') }}</th><th scope="col" class="text-end">{{ __('Net') }}</th></tr></thead>
+                    <tbody>
+                        @foreach ($totals as $row)
+                            <tr>
+                                <th scope="row"><span class="acc-code">{{ $row->code }}</span></th>
+                                <td class="text-end text-nowrap" dir="ltr"><span class="acc-debit">{{ format_amount($row->owed_to_us, 2) }}</span> <small class="text-muted" title="{{ __('Accounts') }}">· {{ (int) $row->debtor_count }}</small></td>
+                                <td class="text-end text-nowrap" dir="ltr"><span class="acc-credit">{{ format_amount($row->we_owe, 2) }}</span> <small class="text-muted" title="{{ __('Accounts') }}">· {{ (int) $row->creditor_count }}</small></td>
+                                <td class="text-end text-nowrap fw-semibold" dir="ltr"><span class="{{ $row->net < 0 ? 'acc-debit' : 'acc-credit' }}">{{ $row->net < 0 ? '−' : '' }}{{ format_amount(abs($row->net), 2) }}</span></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
-        </div>
+            <ul class="acc-totals-list d-md-none">
+                @foreach ($totals as $row)
+                    <li>
+                        <span class="acc-code">{{ $row->code }}</span>
+                        <div>
+                            <strong dir="ltr" class="{{ $row->net < 0 ? 'acc-debit' : 'acc-credit' }}">{{ $row->net < 0 ? '−' : '' }}{{ format_amount(abs($row->net), 2) }}</strong>
+                            <small>{{ __('They owe us') }} <span dir="ltr">{{ format_amount($row->owed_to_us, 2) }}</span> · {{ __('We owe them') }} <span dir="ltr">{{ format_amount($row->we_owe, 2) }}</span></small>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
     </div>
-</div>
-
+</section>
 <script>try{if(localStorage.getItem('sb.accounts.totals')==='0'){document.getElementById('accSummary').hidden=true;document.getElementById('summaryToggle').setAttribute('aria-expanded','false')}}catch(e){}</script>
 
 <div class="card">
@@ -118,7 +126,7 @@
         </form>
 
         <p class="acc-legend small text-muted mb-3">
-            <span><i class="acc-dot is-debit" aria-hidden="true"></i> {{ __('They owe us') }}</span>
+            <span><i class="acc-dot is-debit" aria-hidden="true"></i> <b class="acc-debit" dir="ltr">−</b> {{ __('They owe us') }}</span>
             <span><i class="acc-dot is-credit" aria-hidden="true"></i> {{ __('We owe them') }}</span>
             @if ($accounts->total())
                 <span class="ms-auto">{{ __(':from–:to of :total', ['from' => number_format($accounts->firstItem()), 'to' => number_format($accounts->lastItem()), 'total' => number_format($accounts->total())]) }}</span>
@@ -129,8 +137,12 @@
             <div class="empty-state">
                 <div class="es-icon"><x-icon name="address-book" /></div>
                 <h2 class="h3">{{ $filtered ? __('Nothing found') : __('No account yet') }}</h2>
-                @if ($canCreate && ! $filtered)
-                    <p>{{ __('Press ":button" to add the first one.', ['button' => __('ui.create_account')]) }}</p>
+                @if ($filtered)
+                    <p>{{ __('No account matches these filters.') }}</p>
+                    <a class="btn btn-outline-soft" href="{{ route('admin.accounts.index') }}"><x-icon name="filter-circle-xmark" class="me-1" /> {{ __('Clear the filters') }}</a>
+                @elseif ($canCreate)
+                    <p>{{ __('Add the first customer or Saraf to start recording.') }}</p>
+                    <button class="btn btn-primary" type="button" data-account-new><x-icon name="plus" class="me-1" /> {{ __('ui.create_account') }}</button>
                 @endif
             </div>
         @else
@@ -153,6 +165,7 @@
                             $isCash = $cashCategoryId && (int) $sub?->account_category_id === (int) $cashCategoryId;
                             $mine = $balances->get($account->id, collect());
                             $url = route('admin.accounts.show', $account->id);
+                            $hasPhone = strlen(preg_replace('/\D/', '', (string) $account->contact)) >= 6;
                             $tone = ['Customer' => 'primary', 'Saraf' => 'info', 'Safe' => 'success', 'PnL' => 'warning', 'EXP' => 'secondary'][$sub?->name] ?? 'secondary';
                             $editJson = json_encode([
                                 'id' => $account->id, 'name' => $account->name, 'code' => $account->code,
@@ -161,7 +174,11 @@
                                 'reports' => (bool) $account->include_in_reports,
                             ], JSON_UNESCAPED_UNICODE);
                         @endphp
-                        <tr>
+                        @if ($groupCash && $isCash && ! ($shownCashHeading ?? false))
+                            @php $shownCashHeading = true; @endphp
+                            <tr class="acc-group"><th colspan="{{ 3 + $columns->count() }}" scope="rowgroup"><x-icon name="vault" class="me-1" /> {{ __('Cash accounts') }} <small>{{ __('safe, profit and loss, expenses') }}</small></th></tr>
+                        @endif
+                        <tr @class(['is-cash' => $isCash])>
                             <td>
                                 <div class="acc-who">
                                     <a href="{{ $url }}" class="avatar avatar-sm avatar-soft-{{ $tone }}" aria-hidden="true" tabindex="-1">{{ initial($account->name) }}</a>
@@ -181,7 +198,7 @@
                                 </div>
                             </td>
                             <td class="acc-contact">
-                                @if (filled($account->contact) && $account->contact !== '+93')
+                                @if ($hasPhone)
                                     <a href="tel:{{ preg_replace('/[^0-9+]/', '', $account->contact) }}" dir="ltr" class="text-nowrap">{{ $account->contact }}</a>
                                 @else
                                     <span class="text-muted">—</span>
@@ -195,7 +212,7 @@
                                 @if (abs($value) < 0.005)
                                     <td class="text-end acc-amount is-zero"><span aria-label="{{ __('No balance') }}">—</span></td>
                                 @else
-                                    <td class="text-end acc-amount {{ $value < 0 ? 'is-debit' : 'is-credit' }}" dir="ltr" title="{{ $value < 0 ? __('They owe us') : __('We owe them') }}">{{ format_amount(abs($value), 2) }}</td>
+                                    <td class="text-end acc-amount {{ $value < 0 ? 'is-debit' : 'is-credit' }}" dir="ltr" title="{{ $value < 0 ? __('They owe us') : __('We owe them') }}">{{ $value < 0 ? '−' : '' }}{{ format_amount(abs($value), 2) }}<span class="visually-hidden"> {{ $currency->code }}, {{ $value < 0 ? __('they owe us') : __('we owe them') }}</span></td>
                                 @endif
                             @endforeach
                             <td class="text-end text-nowrap no-print">
@@ -204,11 +221,11 @@
                                     @if ($canUpdate)
                                         <x-act kind="edit" type="button" data-account-edit="{{ $editJson }}" />
                                     @endif
-                                    @if (($canMessage && filled($account->contact)) || ($canDelete && ! $isCash))
+                                    @if (($canMessage && $hasPhone) || ($canDelete && ! $isCash))
                                         <div class="dropdown d-inline-block">
                                             <button class="btn-act is-gray" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ __('More') }}" aria-label="{{ __('More') }}"><x-icon name="ellipsis-vertical" /></button>
                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                @if ($canMessage && filled($account->contact))
+                                                @if ($canMessage && $hasPhone)
                                                     <li><button class="dropdown-item" type="button" data-whatsapp="{{ route('admin.accounts.send-whatsapp', $account->id) }}"><x-icon name="comment-dots" class="me-2 text-success" /> {{ __('Send the balance on WhatsApp') }}</button></li>
                                                 @endif
                                                 @if ($canDelete && ! $isCash)

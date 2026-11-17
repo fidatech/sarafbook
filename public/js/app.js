@@ -264,7 +264,10 @@ if (!a || !a.href || a.origin !== location.origin || a.hasAttribute('download') 
 return !isNever(a.pathname);
 };
 var here = location.pathname + location.search;
-(function learn() {
+var shown = function (fn) {
+if (document.prerendering) document.addEventListener('prerenderingchange', fn, { once: true }); else fn();
+};
+shown(function learn() {
 if (isNever(location.pathname)) return;
 var seen = store.get('sb.nav', {});
 Object.keys(seen).forEach(function (k) { seen[k] *= 0.97; if (seen[k] < 0.3) delete seen[k]; });
@@ -272,7 +275,11 @@ seen[here] = (seen[here] || 0) + 1;
 var top = Object.keys(seen).sort(function (x, y) { return seen[y] - seen[x]; }).slice(0, 40);
 var keep = {}; top.forEach(function (k) { keep[k] = Math.round(seen[k] * 100) / 100; });
 store.set('sb.nav', keep);
-})();
+});
+if (document.prerendering) document.addEventListener('prerenderingchange', function () {
+if (store.get('sb.saved', 0) > loadedAt) location.reload();
+loadedAt = Date.now();
+}, { once: true });
 var budget = function () {
 var c = navigator.connection || {};
 if (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')) return 0;
@@ -301,9 +308,13 @@ if (!canSpeculate || document.visibilityState !== 'visible') return;
 dropEarly();
 earlyUrls = candidates().slice(0, budget());
 if (!earlyUrls.length) return;
+var drawable = (cfg.prerender || []).indexOf(earlyUrls[0].split('?')[0]) !== -1 && !/[?&]/.test(earlyUrls[0]);
+var rules = { prefetch: [{ urls: drawable ? earlyUrls.slice(1) : earlyUrls, eagerness: 'immediate' }] };
+if (drawable) rules.prerender = [{ urls: [earlyUrls[0]], eagerness: 'immediate' }];
+if (!rules.prefetch[0].urls.length) delete rules.prefetch;
 early = document.createElement('script');
 early.type = 'speculationrules';
-early.textContent = JSON.stringify({ prefetch: [{ urls: earlyUrls, eagerness: 'immediate' }] });
+early.textContent = JSON.stringify(rules);
 document.head.appendChild(early);
 };
 var dropEarly = function () { if (early) { early.remove(); early = null; } earlyUrls = []; };

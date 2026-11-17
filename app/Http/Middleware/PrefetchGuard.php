@@ -24,6 +24,13 @@ class PrefetchGuard
     public function handle(Request $request, Closure $next): Response
     {
         if (self::isEarly($request)) {
+            // Laravel recognises only the exact word "prefetch" (Request::prefetch()); a page
+            // rendered ahead says "prefetch;prerender". One word for both, so the session is
+            // neither written nor told this is the page to go back to.
+            $request->headers->set('Sec-Purpose', 'prefetch');
+            $request->headers->remove('Purpose');
+            $request->server->remove('HTTP_X_MOZ');
+
             if (! config('prefetch.enabled') || self::isNever('/'.ltrim($request->path(), '/'))) {
                 return response('', 403, ['Cache-Control' => 'no-store']);
             }

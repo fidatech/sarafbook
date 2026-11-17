@@ -80,6 +80,8 @@ class Tenancy
             'filesystems.disks.local.root' => config('filesystems.disks.local.root'),
             'filesystems.disks.public.root' => config('filesystems.disks.public.root'),
             'permission.cache.key' => config('permission.cache.key'),
+            'session.files' => config('session.files'),
+            'cache.stores.file.path' => config('cache.stores.file.path'),
             'services.wasender' => config('services.wasender'),
             'app.url' => config('app.url'),
         ];
@@ -98,6 +100,19 @@ class Tenancy
         config([
             'cache.prefix' => $this->original['cache.prefix'].'t'.$tenant->id.'_',
             'permission.cache.key' => 'spatie.permission.cache.t'.$tenant->id,
+        ]);
+        $this->resetCache();
+
+        // 2b. file sessions and the file cache of this Sarafi are kept in its own folder, so a
+        //     session made at one Sarafi can never be read at another
+        foreach (['sessions', 'cache'] as $dir) {
+            if (! is_dir($tenant->storagePath('framework/'.$dir))) {
+                @mkdir($tenant->storagePath('framework/'.$dir), 0755, true);
+            }
+        }
+        config([
+            'session.files' => $tenant->storagePath('framework/sessions'),
+            'cache.stores.file.path' => $tenant->storagePath('framework/cache'),
         ]);
         $this->resetCache();
 

@@ -30,18 +30,30 @@
 @if (config('prefetch.enabled'))
 @php
     $never = array_values((array) config('prefetch.never'));
-    $hoverRules = ['prefetch' => [[
-        'where' => ['and' => [
-            ['href_matches' => '/*'],
-            ['not' => ['href_matches' => $never]],
-            ['not' => ['selector_matches' => '[data-no-prefetch],[target=_blank],[download],[rel~=external],form a']],
+    $prerender = array_values((array) config('prefetch.prerender'));
+    $skip = ['not' => ['selector_matches' => '[data-no-prefetch],[target=_blank],[download],[rel~=external],form a']];
+    $hoverRules = [
+        // pages on the prerender list are drawn ahead while the pointer rests on their link
+        'prerender' => $prerender ? [[
+            'where' => ['and' => [['href_matches' => $prerender], $skip]],
+            'eagerness' => 'moderate',
+        ]] : [],
+        // every other page is fetched (HTML only)
+        'prefetch' => [[
+            'where' => ['and' => [
+                ['href_matches' => '/*'],
+                ['not' => ['href_matches' => array_merge($never, $prerender)]],
+                $skip,
+            ]],
+            'eagerness' => 'moderate',
         ]],
-        'eagerness' => 'moderate',
-    ]]];
+    ];
+    $hoverRules = array_filter($hoverRules);
 @endphp
 <script type="speculationrules">{!! json_encode($hoverRules, JSON_UNESCAPED_SLASHES) !!}</script>
 <script type="application/json" id="prefetchConfig">{!! json_encode([
-    'eager' => (int) config('prefetch.eager', 4),
+    'eager' => (int) config('prefetch.eager', 6),
+    'prerender' => $prerender,
     'never' => $never,
     'warm' => \App\Support\WarmAssets::urls(),
 ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>

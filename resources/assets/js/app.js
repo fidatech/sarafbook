@@ -315,7 +315,10 @@
     var here = location.pathname + location.search;
 
     // what this user opens, kept on this device and slowly forgotten
-    (function learn() {
+    var shown = function (fn) {
+        if (document.prerendering) document.addEventListener('prerenderingchange', fn, { once: true }); else fn();
+    };
+    shown(function learn() {
         if (isNever(location.pathname)) return;
         var seen = store.get('sb.nav', {});
         Object.keys(seen).forEach(function (k) { seen[k] *= 0.97; if (seen[k] < 0.3) delete seen[k]; });
@@ -323,7 +326,12 @@
         var top = Object.keys(seen).sort(function (x, y) { return seen[y] - seen[x]; }).slice(0, 40);
         var keep = {}; top.forEach(function (k) { keep[k] = Math.round(seen[k] * 100) / 100; });
         store.set('sb.nav', keep);
-    })();
+    });
+    // a page drawn ahead and shown only now: if something was saved since it was drawn, load it fresh
+    if (document.prerendering) document.addEventListener('prerenderingchange', function () {
+        if (store.get('sb.saved', 0) > loadedAt) location.reload();
+        loadedAt = Date.now();
+    }, { once: true });
 
     // how many pages this device and connection can take without slowing anything
     var budget = function () {
@@ -358,9 +366,14 @@
         dropEarly();
         earlyUrls = candidates().slice(0, budget());
         if (!earlyUrls.length) return;
+        // the most likely page is drawn ahead when it is on the prerender list; the rest are fetched
+        var drawable = (cfg.prerender || []).indexOf(earlyUrls[0].split('?')[0]) !== -1 && !/[?&]/.test(earlyUrls[0]);
+        var rules = { prefetch: [{ urls: drawable ? earlyUrls.slice(1) : earlyUrls, eagerness: 'immediate' }] };
+        if (drawable) rules.prerender = [{ urls: [earlyUrls[0]], eagerness: 'immediate' }];
+        if (!rules.prefetch[0].urls.length) delete rules.prefetch;
         early = document.createElement('script');
         early.type = 'speculationrules';
-        early.textContent = JSON.stringify({ prefetch: [{ urls: earlyUrls, eagerness: 'immediate' }] });
+        early.textContent = JSON.stringify(rules);
         document.head.appendChild(early);
     };
     var dropEarly = function () { if (early) { early.remove(); early = null; } earlyUrls = []; };

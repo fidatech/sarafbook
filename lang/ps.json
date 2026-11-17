@@ -275,5 +275,17 @@
     "Fill it in": "ډک یې کړئ",
     "View": "کتل",
     "WhatsApp": "واټساپ",
-    "Receipt": "رسید"
+    "Receipt": "رسید",
+    "Every balance, in every currency.": "ټول بیلانسونه، په هره اسعارو کې.",
+    "Hide totals": "مجموعې پټې کړئ",
+    "Show totals": "مجموعې وښایاست",
+    "Customers and Sarafs, without the cash accounts": "پیرودونکي او صرافان، پرته له نغدي حسابونو",
+    "Cash accounts": "نغدي حسابونه",
+    "No account matches these filters.": "هیڅ حساب له دې فلټرونو سره سمون نه لري.",
+    "Add the first customer or Saraf to start recording.": "د ثبت پیلولو لپاره لومړی پیرودونکی یا صراف اضافه کړئ.",
+    "safe, profit and loss, expenses": "صندوق، ګټه او تاوان، لګښتونه",
+    "No balance": "بیلانس نشته",
+    "they owe us": "دوی موږ ته پوروړي دي",
+    "we owe them": "موږ دوی ته پوروړي یو",
+    "More": "نور"
 }

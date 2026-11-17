@@ -30,6 +30,8 @@ missing=""
 for ext in pdo_mysql mbstring intl gd zip xml curl fileinfo; do "$PHP" -m | grep -qix "$ext" || missing="$missing $ext"; done
 [ -n "$missing" ] && echo "Warning: PHP extensions not loaded:$missing"
 
+setenv() { "$PHP" -r '[$f,$k,$v]=[$argv[1],$argv[2],$argv[3]]; $s=file_get_contents($f); $line=$k."=".(preg_match("/[\s#\"$]/",$v)?"\"".addcslashes($v,"\"\\$")."\"":$v); $s=preg_match("/^".preg_quote($k,"/")."=.*$/m",$s)?preg_replace("/^".preg_quote($k,"/")."=.*$/m",addcslashes($line,"\\$"),$s):$s."\n".$line."\n"; file_put_contents($f,$s);' .env "$1" "$2"; }
+
 FIRST=0
 [ -f "$APP/.env" ] || FIRST=1
 
@@ -61,7 +63,6 @@ if [ "$FIRST" = 1 ]; then
     step "Settings"
     cp .env.example .env
     chmod 600 .env
-    setenv() { "$PHP" -r '[$f,$k,$v]=[$argv[1],$argv[2],$argv[3]]; $s=file_get_contents($f); $line=$k."=".(preg_match("/[\s#\"$]/",$v)?"\"".addcslashes($v,"\"\\$")."\"":$v); $s=preg_match("/^".preg_quote($k,"/")."=.*$/m",$s)?preg_replace("/^".preg_quote($k,"/")."=.*$/m",addcslashes($line,"\\$"),$s):$s."\n".$line."\n"; file_put_contents($f,$s);' .env "$1" "$2"; }
     setenv APP_ENV production
     setenv APP_DEBUG false
     setenv APP_URL "https://$DOMAIN"
@@ -75,6 +76,15 @@ if [ "$FIRST" = 1 ]; then
     setenv LOG_LEVEL warning
     "$PHP" artisan key:generate --force --no-interaction | tail -1
 fi
+
+step "Settings for speed"
+# sessions and cache in files, each Sarafi in its own folder (app/Tenancy/Tenancy.php): no
+# database round trip for every page. Changing the session store signs everyone out once.
+grep -q '^SESSION_DRIVER=database' .env && setenv SESSION_DRIVER file && echo "sessions: database -> file"
+grep -q '^CACHE_STORE=database' .env && setenv CACHE_STORE file && echo "cache: database -> file"
+grep -q '^PREFETCH_EAGER=' .env || setenv PREFETCH_EAGER 6
+grep -q '^PREFETCH_PER_MINUTE=' .env || setenv PREFETCH_PER_MINUTE 60
+grep -E '^(SESSION_DRIVER|CACHE_STORE|PREFETCH_EAGER|PREFETCH_PER_MINUTE)=' .env
 
 step "Database tables"
 "$PHP" artisan config:clear --no-interaction >/dev/null

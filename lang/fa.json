@@ -275,5 +275,17 @@
     "Fill it in": "آن را پر کنید",
     "View": "دیدن",
     "WhatsApp": "واتساپ",
-    "Receipt": "رسید"
+    "Receipt": "رسید",
+    "Every balance, in every currency.": "همه بیلانس‌ها، به هر اسعار.",
+    "Hide totals": "پنهان کردن مجموع‌ها",
+    "Show totals": "نمایش مجموع‌ها",
+    "Customers and Sarafs, without the cash accounts": "مشتریان و صرافان، بدون حساب‌های نقدی",
+    "Cash accounts": "حساب‌های نقدی",
+    "No account matches these filters.": "هیچ حسابی با این فلترها مطابقت ندارد.",
+    "Add the first customer or Saraf to start recording.": "برای شروع ثبت، اولین مشتری یا صراف را اضافه کنید.",
+    "safe, profit and loss, expenses": "صندوق، مفاد و ضرر، مصارف",
+    "No balance": "بدون بیلانس",
+    "they owe us": "آن‌ها به ما بدهکار اند",
+    "we owe them": "ما به آن‌ها بدهکار هستیم",
+    "More": "بیشتر"
 }

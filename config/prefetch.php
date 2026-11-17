@@ -14,11 +14,17 @@ return [
 
     // Pages fetched after the current page settles (learned from what this user opens most, then
     // the menu). Fewer on slow connections and small devices; none with Data Saver on.
-    'eager' => (int) env('PREFETCH_EAGER', 4),
+    'eager' => (int) env('PREFETCH_EAGER', 6),
 
     // Requests for early pages a single user may make in one minute; past it the server answers 429
     // and the browser simply loads that page normally when it is opened.
-    'per_minute' => (int) env('PREFETCH_PER_MINUTE', 40),
+    'per_minute' => (int) env('PREFETCH_PER_MINUTE', 60),
+
+    // Pages that may also be drawn ahead (pre-rendered), so opening them shows them at once with
+    // nothing left to do. Only pages drawn entirely on the server that load no data after they
+    // open, so drawing one ahead cannot do anything the user did not ask for. A page rebuilt in
+    // the new design is added here once it has been checked.
+    'prerender' => ['/admin/dashboard', '/admin/accounts'],
 
     // Never fetched ahead: addresses that change something, download a file, open WhatsApp or sign
     // out. URL patterns as the browser's speculation rules read them ("*" is any text).
