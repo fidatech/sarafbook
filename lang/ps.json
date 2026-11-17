@@ -502,5 +502,7 @@
     "Divide": "وېش",
     "Amount paid": "ورکړل شوی مبلغ",
     "A picture or PDF of the bill, up to 4 MB. A new file replaces the old one.": "د بل انځور یا PDF، تر ۴ میګابایټه. نوی فایل د زاړه ځای نیسي.",
-    "Only pictures (JPG, PNG, WebP, GIF) and PDF files can be attached.": "یوازې انځورونه (JPG، PNG، WebP، GIF) او PDF فایلونه ضمیمه کېدای شي."
+    "Only pictures (JPG, PNG, WebP, GIF) and PDF files can be attached.": "یوازې انځورونه (JPG، PNG، WebP، GIF) او PDF فایلونه ضمیمه کېدای شي.",
+    "Choose the other account.": "بل حساب وټاکئ.",
+    "The other account must be a different account.": "بل حساب باید بېل حساب وي."
 }

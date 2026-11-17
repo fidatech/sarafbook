@@ -227,6 +227,17 @@ class ExpensesController extends Controller
             'attachment'          => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
         ]);
 
+        // paid in its own currency unless another is given: rate 1, the same amount
+        if (! $request->filled('payment_currency_id') || ! $request->filled('rate')) {
+            $request->merge([
+                'payment_currency_id' => $request->input('currency_id'),
+                'payment_amount' => $request->input('amount'),
+                'rate' => 1,
+                'operation_type' => 'multiply',
+            ]);
+        }
+        $request->merge(['operation_type' => $request->input('operation_type') ?: 'multiply']);
+
         // Upload attachment
         $path = null;
         if ($request->attachment != '') {
@@ -305,6 +316,17 @@ class ExpensesController extends Controller
             'description'         => 'nullable|string',
             'attachment'          => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
         ]);
+
+        // paid in its own currency unless another is given: rate 1, the same amount
+        if (! $request->filled('payment_currency_id') || ! $request->filled('rate')) {
+            $request->merge([
+                'payment_currency_id' => $request->input('currency_id'),
+                'payment_amount' => $request->input('amount'),
+                'rate' => 1,
+                'operation_type' => 'multiply',
+            ]);
+        }
+        $request->merge(['operation_type' => $request->input('operation_type') ?: 'multiply']);
 
         // a new attachment replaces the old one; without one the old stays
         $path = $expense->attachment_path;

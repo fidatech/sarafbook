@@ -288,8 +288,12 @@ class TransactionsController extends Controller
             'entries.*.type'        => 'required|in:credit,debit',
             'entries.*.attachment'  => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf|max:5120',
             'transaction_mode'      => 'required|in:treasure,no_track,track',
-            'track_account_id'      => 'nullable|exists:accounts,id',
+            'track_account_id'      => 'nullable|required_if:transaction_mode,track|exists:accounts,id|different:account_id',
             'reference'             => 'nullable|string|max:255',
+        ], [
+            'track_account_id.required_if' => __('Choose the other account.'),
+            'track_account_id.different' => __('The other account must be a different account.'),
+            'entries.*.attachment.mimes' => __('Only pictures (JPG, PNG, WebP, GIF) and PDF files can be attached.'),
         ]);
 
         $accountId = $request->account_id;
@@ -390,8 +394,12 @@ class TransactionsController extends Controller
             'entries.*.type'        => 'required|in:credit,debit',
             'entries.*.attachment'  => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf|max:5120',
             'transaction_mode'      => 'nullable|in:treasure,no_track,track',
-            'track_account_id'      => 'nullable|exists:accounts,id',
+            'track_account_id'      => 'nullable|required_if:transaction_mode,track|exists:accounts,id|different:account_id',
             'reference'             => 'nullable|string|max:255',
+        ], [
+            'track_account_id.required_if' => __('Choose the other account.'),
+            'track_account_id.different' => __('The other account must be a different account.'),
+            'entries.*.attachment.mimes' => __('Only pictures (JPG, PNG, WebP, GIF) and PDF files can be attached.'),
         ]);
 
         $accountId = $request->account_id;
@@ -824,6 +832,10 @@ class TransactionsController extends Controller
             'entries.*.type'        => 'required|in:credit,debit',
             'transaction_mode'       => 'required|in:treasure,no_track,track',
             'reference'             => 'nullable|string|max:255',
+        ], [
+            'track_account_id.required_if' => __('Choose the other account.'),
+            'track_account_id.different' => __('The other account must be a different account.'),
+            'entries.*.attachment.mimes' => __('Only pictures (JPG, PNG, WebP, GIF) and PDF files can be attached.'),
         ]);
 
         $accountId = $request->account_id;

@@ -502,5 +502,7 @@
     "Divide": "تقسیم",
     "Amount paid": "مبلغ پرداخت‌شده",
     "A picture or PDF of the bill, up to 4 MB. A new file replaces the old one.": "عکس یا PDF بل، تا ۴ میگابایت. فایل جدید جای فایل قبلی را می‌گیرد.",
-    "Only pictures (JPG, PNG, WebP, GIF) and PDF files can be attached.": "فقط عکس (JPG، PNG، WebP، GIF) و فایل PDF ضمیمه می‌شود."
+    "Only pictures (JPG, PNG, WebP, GIF) and PDF files can be attached.": "فقط عکس (JPG، PNG، WebP، GIF) و فایل PDF ضمیمه می‌شود.",
+    "Choose the other account.": "حساب دیگر را انتخاب کنید.",
+    "The other account must be a different account.": "حساب دیگر باید یک حساب متفاوت باشد."
 }
