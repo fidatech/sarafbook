@@ -62,3 +62,25 @@ These scores have **not been measured**: this version has not been run yet. Meas
 server (HTTPS, compression on) with Lighthouse on `/login` first. The carried-over inner pages
 will score lower on Performance until they are converted, mainly because of the libraries they
 load themselves.
+
+## Pages in the fida-sarafi style (every admin page, November 2026)
+
+Every admin page declares `@section('modern', '1')`: no jQuery, DataTables, Select2 or
+SweetAlert. A page is drawn on the server; the shared pieces are:
+
+- `page($view, $data, $parts)` (app/Helpers/pages.php): the whole page, or only the
+  `@fragment` parts named in the `X-Fragment` header.
+- `<form data-live="list,totals">` with `data-live-part="list"` regions: filters, search and
+  paging change the list in place (ERP.live in app.js); the address follows, Back works, the
+  next page is fetched on hover, the first list is kept.
+- `<x-form-modal>` and `<x-field>`: one pop-up for add and edit, opened by
+  `data-modal-form="#id"` with `data-fill`, `data-action`, `data-method`; it posts the
+  ordinary way and opens again with the errors.
+- `done($message, $to, $ok)`: the answer to a save (JSON for old callers, otherwise a
+  redirect with the notice; a refused save keeps what was typed). `back_to($default)`:
+  return to the page a form was opened from (`back` field, same site only).
+- `<select data-search>`: a select you can type in. `ico('name')`: plain icon markup for rows.
+- `<x-permission-grid>`: permissions as a grid of parts of the system × actions.
+- Uploads: `upload_extension($file)` — images and PDF only, named by their content.
+- Lists use `.data-wrap` / `.data-table` / `.row-who` / `.row-name` / `.row-meta` /
+  `.amount.is-credit|is-debit` / `.chip-code`; totals `.tx-totals`; cards of choices `.tx-modes`.
