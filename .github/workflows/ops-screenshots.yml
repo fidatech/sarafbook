@@ -15,7 +15,7 @@ on:
       check:
         description: What to run
         type: choice
-        options: [screenshots, prefetch, timing]
+        options: [screenshots, prefetch, timing, list]
         default: screenshots
 
 permissions:
@@ -48,6 +48,13 @@ jobs:
           BASE_URL: https://${{ inputs.tenant }}.${{ vars.APP_DOMAIN || 'sarafbook.com' }}
           SARAFI_PASSWORD: ${{ secrets.SARAFI_ADMIN_PASSWORD }}
         run: node timing-check.mjs
+      - name: Check the list that changes in place
+        if: inputs.check == 'list'
+        working-directory: scripts/ui
+        env:
+          BASE_URL: https://${{ inputs.tenant }}.${{ vars.APP_DOMAIN || 'sarafbook.com' }}
+          SARAFI_PASSWORD: ${{ secrets.SARAFI_ADMIN_PASSWORD }}
+        run: node list-check.mjs
       - name: Take the screenshots
         if: inputs.check == 'screenshots'
         working-directory: scripts/ui
