@@ -457,6 +457,9 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         };
         history.replaceState({ acc: 1 }, '', location.href);
+        // the list as it came with the page: going back to it (Back, Clear) needs no request
+        var startUrl = location.pathname + location.search;
+        cache[startUrl] = { at: Date.now(), p: Promise.resolve(summaryBody.outerHTML + results.outerHTML) };
 
         filters.addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(typing); show(urlOf(), 'push'); });
         filters.querySelectorAll('[data-autosubmit]').forEach(function (select) {
