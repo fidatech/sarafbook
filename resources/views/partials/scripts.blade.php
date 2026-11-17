@@ -21,8 +21,30 @@
     <script src="{{ asset_v('js/vendor/sweetalert2.min.js') }}"></script>
     <script src="{{ asset_v('assets/js/numeric-inputs.js') }}"></script>
 @endif
+{{--
+    Loading pages early (docs/SPEED.md). The browser fetches a page as soon as the pointer rests on
+    its link (Chrome, Edge, Opera, Samsung Internet), and js/app.js adds the pages this user is most
+    likely to open next once the current page has settled. Only the HTML is fetched; no script of
+    the next page runs until it is opened. Addresses on config('prefetch.never') are never fetched.
+--}}
+@if (config('prefetch.enabled'))
+@php
+    $never = array_values((array) config('prefetch.never'));
+    $hoverRules = ['prefetch' => [[
+        'where' => ['and' => [
+            ['href_matches' => '/*'],
+            ['not' => ['href_matches' => $never]],
+            ['not' => ['selector_matches' => '[data-no-prefetch],[target=_blank],[download],[rel~=external],form a']],
+        ]],
+        'eagerness' => 'moderate',
+    ]]];
+@endphp
+<script type="speculationrules">{!! json_encode($hoverRules, JSON_UNESCAPED_SLASHES) !!}</script>
+<script type="application/json" id="prefetchConfig">{!! json_encode([
+    'eager' => (int) config('prefetch.eager', 4),
+    'never' => $never,
+    'warm' => \App\Support\WarmAssets::urls(),
+], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
+@endif
 <script {{ $defer }} src="{{ asset_v('js/app.js') }}"></script>
-{{-- The next page is fetched as soon as the pointer rests on its link, so opening it feels instant. --}}
-<script type="speculationrules">
-{"prefetch":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/logout","/lang/*","/platform/lang/*","/*recalculate*","/*export*","/*pdf*","/*print*","/*download*","/*delete*","/*template*","/attachments/*","/storage/*","/_platform/*"]}},{"not":{"selector_matches":"[data-no-prefetch],[target=_blank],[download],[rel~=external]"}}]},"eagerness":"moderate"}]}
-</script>
+

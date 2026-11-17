@@ -26,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // The address selects the Sarafi before anything else runs.
         $middleware->prepend(\App\Http\Middleware\IdentifyTenant::class);
+        // Pages the browser loads ahead of time: never-list, per-user limit, dropped after a save.
+        $middleware->append(\App\Http\Middleware\PrefetchGuard::class);
         $middleware->append(\App\Http\Middleware\NormalizeNumericInputs::class);
         $middleware->append(\App\Http\Middleware\CacheHeaders::class);
 

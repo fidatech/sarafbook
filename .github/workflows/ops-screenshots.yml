@@ -12,6 +12,11 @@ on:
       path:
         description: Page to photograph
         default: /admin/accounts
+      check:
+        description: What to run
+        type: choice
+        options: [screenshots, prefetch]
+        default: screenshots
 
 permissions:
   contents: read
@@ -29,7 +34,15 @@ jobs:
         run: |
           cd scripts/ui && npm init -y >/dev/null && npm install --no-audit --no-fund playwright@1 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
+      - name: Check loading pages early
+        if: inputs.check == 'prefetch'
+        working-directory: scripts/ui
+        env:
+          BASE_URL: https://${{ inputs.tenant }}.${{ vars.APP_DOMAIN || 'sarafbook.com' }}
+          SARAFI_PASSWORD: ${{ secrets.SARAFI_ADMIN_PASSWORD }}
+        run: node prefetch-check.mjs
       - name: Take the screenshots
+        if: inputs.check != 'prefetch'
         working-directory: scripts/ui
         env:
           BASE_URL: https://${{ inputs.tenant }}.${{ vars.APP_DOMAIN || 'sarafbook.com' }}
@@ -37,10 +50,12 @@ jobs:
           SARAFI_PASSWORD: ${{ secrets.SARAFI_ADMIN_PASSWORD }}
         run: node screenshots.mjs
       - name: Print the images as text (for tools that cannot download artifacts)
+        if: inputs.check != 'prefetch'
         working-directory: scripts/ui/shots
         run: |
           for f in *.jpg; do base64 -w 0 "$f" | fold -w 3000 | sed "s/^/SHOT ${f%.jpg} /"; echo; done
       - uses: actions/upload-artifact@v4
+        if: inputs.check != 'prefetch'
         with:
           name: screenshots
           path: scripts/ui/shots/

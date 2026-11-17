@@ -283,41 +283,167 @@
         ERP.flush();
     };
 
-    // ------------------------------------------------------ moving between pages
-    // The browser fetches the next page while the pointer rests on its link (the speculation rules
-    // in partials/scripts). This is the same for browsers without them, and the thin bar on top.
+    // ------------------------------------------- moving between pages, loaded early
+    // Each page is an ordinary page, but the next ones are ready before they are opened
+    // (docs/SPEED.md):
+    //  1. once this page has fully loaded and the browser is idle, the pages this user opens most
+    //     (learned on this device), then the menu, are fetched in the background: HTML only, none
+    //     of their scripts run, a few at a time, fewer on slow connections, none with Data Saver;
+    //  2. the page under the pointer is fetched on hover (speculation rules in partials/scripts);
+    //  3. libraries other pages need are downloaded once (public/warm.json);
+    //  4. anything saved drops every early page (and the server says the same with
+    //     Clear-Site-Data), and a page shown again by Back is reloaded if something was saved
+    //     since, so a figure on screen is never older than the last save.
     var progress = $('#navProgress');
-    var sameOrigin = function (a) {
-        return a && a.href && a.origin === location.origin && !a.hasAttribute('download') && a.target !== '_blank'
-            && !a.hasAttribute('data-no-prefetch') && a.getAttribute('href').charAt(0) !== '#';
+    var cfgNode = $('#prefetchConfig');
+    var cfg = { eager: 0, never: [], warm: [] };
+    try { if (cfgNode) cfg = JSON.parse(cfgNode.textContent); } catch (e) {}
+    var store = {
+        get: function (k, d) { try { var v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+        set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
     };
-    var SKIP_URL = /logout|\/lang\/|recalculate|export|pdf|print|download|delete|template|\/attachments\/|\/storage\//i;
-    var fetched = {};
+    var loadedAt = Date.now();
+    var neverRe = (cfg.never || []).map(function (p) {
+        return new RegExp('^' + p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$', 'i');
+    });
+    var isNever = function (path) { return neverRe.some(function (re) { return re.test(path); }); };
+    var usable = function (a) {
+        if (!a || !a.href || a.origin !== location.origin || a.hasAttribute('download') || a.target === '_blank'
+            || a.hasAttribute('data-no-prefetch') || a.closest('form') || (a.getAttribute('href') || '').charAt(0) === '#') return false;
+        return !isNever(a.pathname);
+    };
+    var here = location.pathname + location.search;
+
+    // what this user opens, kept on this device and slowly forgotten
+    (function learn() {
+        if (isNever(location.pathname)) return;
+        var seen = store.get('sb.nav', {});
+        Object.keys(seen).forEach(function (k) { seen[k] *= 0.97; if (seen[k] < 0.3) delete seen[k]; });
+        seen[here] = (seen[here] || 0) + 1;
+        var top = Object.keys(seen).sort(function (x, y) { return seen[y] - seen[x]; }).slice(0, 40);
+        var keep = {}; top.forEach(function (k) { keep[k] = Math.round(seen[k] * 100) / 100; });
+        store.set('sb.nav', keep);
+    })();
+
+    // how many pages this device and connection can take without slowing anything
+    var budget = function () {
+        var c = navigator.connection || {};
+        if (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')) return 0;
+        var n = cfg.eager || 0;
+        if (c.effectiveType === '3g' || (navigator.deviceMemory && navigator.deviceMemory < 2)) n = Math.min(n, 2);
+        return n;
+    };
+
+    var candidates = function () {
+        var list = [], add = function (url) {
+            var u; try { u = new URL(url, location.href); } catch (e) { return; }
+            var key = u.pathname + u.search;
+            if (u.origin !== location.origin || key === here || isNever(u.pathname) || list.indexOf(key) !== -1) return;
+            list.push(key);
+        };
+        // pages linked from this page that this user opens most …
+        var seen = store.get('sb.nav', {});
+        var linked = {};
+        $$('a[href]').forEach(function (a) { if (usable(a)) linked[a.pathname + a.search] = true; });
+        Object.keys(seen).sort(function (x, y) { return seen[y] - seen[x]; }).forEach(function (k) { if (linked[k] && seen[k] >= 1.5) add(k); });
+        // … then the menu in its order
+        $$('#sidebarMenu a.menu-link[href], #sidebarMenu a.menu-sublink[href], .app-tabbar a[href], a[data-prefetch]').forEach(function (a) { if (usable(a)) add(a.href); });
+        return list;
+    };
+
     var canSpeculate = !!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('speculationrules'));
-    var saveData = !!(navigator.connection && navigator.connection.saveData);
-    if (!canSpeculate && !saveData) {
-        var hoverTimer;
-        document.addEventListener('mouseover', function (e) {
-            var a = e.target.closest && e.target.closest('a[href]');
-            if (!sameOrigin(a) || SKIP_URL.test(a.href) || fetched[a.href]) return;
-            clearTimeout(hoverTimer);
-            hoverTimer = setTimeout(function () {
-                fetched[a.href] = true;
-                var link = document.createElement('link');
-                link.rel = 'prefetch';
-                link.href = a.href;
-                document.head.appendChild(link);
-            }, 90);
-        }, { passive: true });
+    var early = null, earlyUrls = [];
+    var fetchEarly = function () {
+        if (!canSpeculate || document.visibilityState !== 'visible') return;
+        dropEarly();
+        earlyUrls = candidates().slice(0, budget());
+        if (!earlyUrls.length) return;
+        early = document.createElement('script');
+        early.type = 'speculationrules';
+        early.textContent = JSON.stringify({ prefetch: [{ urls: earlyUrls, eagerness: 'immediate' }] });
+        document.head.appendChild(early);
+    };
+    var dropEarly = function () { if (early) { early.remove(); early = null; } earlyUrls = []; };
+    ERP.earlyPages = function () { return earlyUrls.slice(); };
+
+    var warmed = false;
+    var warm = function () {
+        if (warmed || budget() === 0) return;
+        warmed = true;
+        var have = {};
+        $$('link[rel=stylesheet][href], script[src]').forEach(function (el) { have[el.href || el.src] = true; });
+        (cfg.warm || []).forEach(function (url) {
+            var abs = new URL(url, location.href).href;
+            if (have[abs]) return;
+            var l = document.createElement('link');
+            l.rel = 'prefetch';
+            l.href = abs;
+            if (/\.woff2(\?|$)/.test(abs)) { l.as = 'font'; l.crossOrigin = 'anonymous'; }
+            document.head.appendChild(l);
+        });
+    };
+
+    // start only when this page is complete and the browser has nothing else to do
+    var whenIdle = function (fn) {
+        var go = function () { (window.requestIdleCallback || function (f) { return setTimeout(f, 1200); })(fn, { timeout: 4000 }); };
+        if (document.readyState === 'complete') setTimeout(go, 600); else window.addEventListener('load', function () { setTimeout(go, 600); }, { once: true });
+    };
+    whenIdle(function () {
+        if (document.visibilityState === 'visible') { fetchEarly(); warm(); }
+        else document.addEventListener('visibilitychange', function once() {
+            if (document.visibilityState !== 'visible') return;
+            document.removeEventListener('visibilitychange', once);
+            whenIdle(function () { fetchEarly(); warm(); });
+        });
+    });
+
+    // a save on this page (form, fetch or the older pages' jQuery) drops the early pages; they are
+    // fetched again a moment after the save has finished
+    var saved = function () {
+        store.set('sb.saved', Date.now());
+        dropEarly();
+        clearTimeout(saved.t);
+        saved.t = setTimeout(fetchEarly, 2500);
+    };
+    var writes = /^(POST|PUT|PATCH|DELETE)$/i;
+    document.addEventListener('submit', function (e) {
+        var m = (e.target.getAttribute('method') || 'GET');
+        var spoof = e.target.querySelector('input[name=_method]');
+        if (writes.test(m) || (spoof && writes.test(spoof.value))) store.set('sb.saved', Date.now());
+    }, true);
+    if (window.fetch) {
+        var nativeFetch = window.fetch;
+        window.fetch = function (input, init) {
+            var m = (init && init.method) || (input && input.method) || 'GET';
+            var p = nativeFetch.apply(this, arguments);
+            if (writes.test(m)) p.then(saved, saved);
+            return p;
+        };
     }
+    if (window.XMLHttpRequest) {
+        var nativeOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method) {
+            if (writes.test(method || '')) this.addEventListener('loadend', saved);
+            return nativeOpen.apply(this, arguments);
+        };
+    }
+    // a save in another tab of the same Sarafi
+    window.addEventListener('storage', function (e) { if (e.key === 'sb.saved') { dropEarly(); clearTimeout(saved.t); saved.t = setTimeout(fetchEarly, 2500); } });
+
+    // Back and Forward show the page as it was left (instant); if something was saved since, it is loaded fresh
+    window.addEventListener('pageshow', function (e) {
+        if (progress) progress.classList.remove('is-active');
+        if (e.persisted && store.get('sb.saved', 0) > loadedAt) location.reload();
+    });
+
+    // the thin bar on top while a page that was not loaded early is on its way
     document.addEventListener('click', function (e) {
         if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !progress) return;
         var a = e.target.closest && e.target.closest('a[href]');
-        if (!sameOrigin(a) || SKIP_URL.test(a.href)) return;
+        if (!a || a.origin !== location.origin || a.target === '_blank' || a.hasAttribute('download') || (a.getAttribute('href') || '').charAt(0) === '#') return;
         if (a.pathname === location.pathname && a.search === location.search) return;
         progress.classList.add('is-active');
     });
-    window.addEventListener('pageshow', function () { if (progress) progress.classList.remove('is-active'); });
 
     // -------------------------------------------------------------------- boot
     var onScroll = function () { body.classList.toggle('is-scrolled', window.scrollY > 28); };

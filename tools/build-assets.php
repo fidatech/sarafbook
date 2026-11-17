@@ -288,6 +288,33 @@ if ($missing) {
 }
 
 $stale = [];
+// public/warm.json: libraries and styles that two or more pages load (at most 250 KB each),
+// plus the old icon font, downloaded once in the background by js/app.js (docs/SPEED.md).
+$used = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator("$root/resources/views", FilesystemIterator::SKIP_DOTS)) as $file) {
+    if (! str_ends_with($file->getFilename(), '.blade.php')) {
+        continue;
+    }
+    preg_match_all("/asset(?:_v)?\\('([^']+\\.(?:js|css))'\\)/", file_get_contents($file->getPathname()), $m);
+    foreach (array_unique($m[1]) as $path) {
+        $used[$path] = ($used[$path] ?? 0) + 1;
+    }
+}
+$warm = ['js/vendor/jquery.min.js', 'js/vendor/sweetalert2.min.js', 'css/vendor/sweetalert2.min.css', 'css/vendor/bootstrap-icons.css', 'fonts/vendor/bootstrap-icons.woff2', 'assets/js/numeric-inputs.js'];
+foreach ($used as $path => $count) {
+    // the earlier admin template's own files are used only by print pages; they are left out
+    if ($count < 2 || str_starts_with($path, 'assets/vendor/') || str_starts_with($path, 'assets/css/demo') || $path === 'assets/js/config.js') {
+        continue;
+    }
+    $full = "$root/public/$path";
+    if (is_file($full) && filesize($full) <= 250 * 1024) {
+        $warm[] = $path;
+    }
+}
+$warm = array_values(array_unique(array_filter($warm, fn ($path) => is_file("$root/public/$path"))));
+sort($warm);
+$outputs['public/warm.json'] = json_encode($warm, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
+
 foreach ($outputs as $path => $content) {
     $current = is_file("$root/$path") ? file_get_contents("$root/$path") : null;
     if ($current !== $content) {
