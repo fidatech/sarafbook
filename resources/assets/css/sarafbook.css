@@ -195,48 +195,48 @@ div.rh-service { cursor: default; }
 #accSummary[hidden] { display: none !important; }
 .acc-count { font-size: 30px; font-weight: 800; color: var(--heading); line-height: 1.1; font-variant-numeric: tabular-nums; }
 [dir="rtl"] .acc-count { text-align: right; }
-.acc-code { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: .3px; background: var(--hover); color: var(--muted); vertical-align: 1px; }
-.acc-debit { color: #c62828; font-weight: 700; font-variant-numeric: tabular-nums; }
-.acc-credit { color: var(--primary); font-weight: 700; font-variant-numeric: tabular-nums; }
-[data-bs-theme="dark"] .acc-debit { color: #f87171; }
+.acc-code, .chip-code { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: .3px; background: var(--hover); color: var(--muted); vertical-align: 1px; }
+.acc-debit, .is-owed { color: #c62828; font-weight: 700; font-variant-numeric: tabular-nums; }
+.acc-credit, .is-owing { color: var(--primary); font-weight: 700; font-variant-numeric: tabular-nums; }
+[data-bs-theme="dark"] .acc-debit, [data-bs-theme="dark"] .is-owed { color: #f87171; }
 .acc-totals td, .acc-totals th { padding-block: 9px; }
-.acc-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
-.acc-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 4px; vertical-align: 0; }
-.acc-dot.is-debit { background: #c62828; }
-.acc-dot.is-credit { background: var(--primary); }
+.acc-legend, .list-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.acc-dot, .legend-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 4px; vertical-align: 0; }
+.acc-dot.is-debit, .legend-dot.is-debit { background: #c62828; }
+.acc-dot.is-credit, .legend-dot.is-credit { background: var(--primary); }
 
 /* the list: one line for every account, one column for every currency */
-.acc-wrap { border: 1px solid var(--border); border-radius: 14px; }
-.acc-table { --acc-pad: 12px; }
-.acc-table thead th { position: sticky; top: 0; z-index: 1; background: var(--hover); font-size: 11.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); padding: 11px var(--acc-pad); border-bottom: 1px solid var(--border); white-space: nowrap; }
-.acc-table tbody td { padding: 10px var(--acc-pad); vertical-align: middle; border-bottom: 1px solid var(--border); }
-.acc-table tbody tr:last-child td { border-bottom: 0; }
-.acc-table tbody tr:hover td { background: var(--hover); }
-.acc-table .acc-cur-head { min-width: 116px; }
-.acc-who { display: flex; align-items: center; gap: 12px; min-width: 210px; }
-.acc-who .avatar { flex: 0 0 auto; text-decoration: none; }
-.acc-name { display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 14px; color: var(--heading); text-decoration: none; }
-.acc-name:hover { color: var(--primary); }
-.acc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; font-size: 12px; color: var(--muted); }
-.acc-meta .badge-soft { font-size: 10.5px; padding: 1px 8px; }
-.acc-flag { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font-size: 9.5px; color: var(--primary); background: var(--primary-soft); }
-.acc-flag.is-muted { color: var(--muted); background: var(--hover); }
-.acc-contact a { color: var(--text); text-decoration: none; font-size: 13.5px; }
-.acc-contact a:hover { color: var(--primary); }
-.acc-address { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
-.acc-amount { white-space: nowrap; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.acc-amount.is-debit { color: #c62828; }
-.acc-amount.is-credit { color: var(--primary); }
-.acc-amount.is-zero { color: var(--border-strong, #c4cad6); font-weight: 400; }
-[data-bs-theme="dark"] .acc-amount.is-debit { color: #f87171; }
+.acc-wrap, .data-wrap { border: 1px solid var(--border); border-radius: 14px; }
+.acc-table, .data-table { --acc-pad: 12px; }
+.acc-table thead th, .data-table thead th { position: sticky; top: 0; z-index: 1; background: var(--hover); font-size: 11.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); padding: 11px var(--acc-pad); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.acc-table tbody td, .data-table tbody td { padding: 10px var(--acc-pad); vertical-align: middle; border-bottom: 1px solid var(--border); }
+.acc-table tbody tr:last-child td, .data-table tbody tr:last-child td { border-bottom: 0; }
+.acc-table tbody tr:hover td, .data-table tbody tr:hover td { background: var(--hover); }
+.acc-table .acc-cur-head, .data-table .acc-cur-head { min-width: 116px; }
+.acc-who, .row-who { display: flex; align-items: center; gap: 12px; min-width: 210px; }
+.acc-who .avatar, .row-who .avatar { flex: 0 0 auto; text-decoration: none; }
+.acc-name, .row-name { display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 14px; color: var(--heading); text-decoration: none; }
+.acc-name:hover, .row-name:hover { color: var(--primary); }
+.acc-meta, .row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.acc-meta .badge-soft, .row-meta .badge-soft { font-size: 10.5px; padding: 1px 8px; }
+.acc-flag, .row-flag { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font-size: 9.5px; color: var(--primary); background: var(--primary-soft); }
+.acc-flag.is-muted, .row-flag.is-muted { color: var(--muted); background: var(--hover); }
+.acc-contact a, .row-contact a { color: var(--text); text-decoration: none; font-size: 13.5px; }
+.acc-contact a:hover, .row-contact a:hover { color: var(--primary); }
+.acc-address, .row-sub { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+.acc-amount, .amount { white-space: nowrap; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.acc-amount.is-debit, .amount.is-debit { color: #c62828; }
+.acc-amount.is-credit, .amount.is-credit { color: var(--primary); }
+.acc-amount.is-zero, .amount.is-zero { color: var(--border-strong, #c4cad6); font-weight: 400; }
+[data-bs-theme="dark"] .acc-amount.is-debit, [data-bs-theme="dark"] .amount.is-debit { color: #f87171; }
 .btn-act.is-gray { color: var(--muted); background: var(--hover); border-color: transparent; }
 .btn-act.is-gray:hover { color: var(--heading) !important; background: var(--border); }
-.acc-table .dropdown-item { display: flex; align-items: center; font-size: 13.5px; }
-.acc-table .dropdown-item .fi { width: 16px; }
+.acc-table .dropdown-item, .data-table .dropdown-item { display: flex; align-items: center; font-size: 13.5px; }
+.acc-table .dropdown-item .fi, .data-table .dropdown-item .fi { width: 16px; }
 /* on a phone each account becomes a card; empty currencies are left out of it */
-.acc-wrap:has(.table-cards) { border: 0; }
-.table-cards.acc-table td.is-zero { display: none; }
-.table-cards.acc-table td { border-bottom: 0; }
+.acc-wrap:has(.table-cards), .data-wrap:has(.table-cards) { border: 0; }
+.table-cards.acc-table td.is-zero, .table-cards.data-table td.is-zero { display: none; }
+.table-cards.acc-table td, .table-cards.data-table td { border-bottom: 0; }
 .acc-steps { margin: 0; padding-inline-start: 1.2rem; display: grid; gap: 16px; }
 .acc-steps > li::marker { font-weight: 800; color: var(--primary); }
 
@@ -251,20 +251,31 @@ div.rh-service { cursor: default; }
 .acc-totals-list li > div { display: grid; gap: 2px; min-width: 0; }
 .acc-totals-list strong { font-size: 17px; }
 .acc-totals-list small { color: var(--muted); font-size: 12px; line-height: 1.5; }
-.acc-table tr.acc-group th { background: var(--surface-2, var(--hover)); color: var(--heading); font-size: 12.5px; font-weight: 700; padding: 9px var(--acc-pad); border-block: 1px solid var(--border); letter-spacing: 0; text-transform: none; }
-.acc-table tr.acc-group small { margin-inline-start: 6px; color: var(--muted); font-weight: 400; }
-.acc-table tr.is-cash .avatar { filter: saturate(.4); }
-[data-bs-theme="dark"] .acc-credit, [data-bs-theme="dark"] .acc-amount.is-credit, [data-bs-theme="dark"] .acc-dot.is-credit { color: #8fb4ff; }
-[data-bs-theme="dark"] .acc-dot.is-credit { background: #8fb4ff; }
+.acc-table tr.acc-group th, .data-table tr.row-group th { background: var(--surface-2, var(--hover)); color: var(--heading); font-size: 12.5px; font-weight: 700; padding: 9px var(--acc-pad); border-block: 1px solid var(--border); letter-spacing: 0; text-transform: none; }
+.acc-table tr.acc-group small, .data-table tr.row-group small { margin-inline-start: 6px; color: var(--muted); font-weight: 400; }
+.acc-table tr.is-cash .avatar, .data-table tr.is-cash .avatar { filter: saturate(.4); }
+[data-bs-theme="dark"] .acc-credit, [data-bs-theme="dark"] .acc-amount.is-credit, [data-bs-theme="dark"] .acc-dot.is-credit, [data-bs-theme="dark"] .is-owing, [data-bs-theme="dark"] .amount.is-credit, [data-bs-theme="dark"] .legend-dot.is-credit { color: #8fb4ff; }
+[data-bs-theme="dark"] .acc-dot.is-credit, [data-bs-theme="dark"] .legend-dot.is-credit { background: #8fb4ff; }
 .empty-state .btn { margin-top: 4px; }
 .form-check.form-switch { display: flex; align-items: center; gap: 10px; padding-inline-start: 0; }
 .form-check.form-switch .form-check-input { margin: 0; float: none; flex: 0 0 auto; }
 @media (max-width: 767.98px) {
-    .table-cards.acc-table .btn-act, .table-cards.acc-table .dropdown-toggle { min-width: 40px; min-height: 40px; }
-    .table-cards.acc-table .acc-contact a { display: inline-flex; align-items: center; min-height: 40px; }
-    .table-cards.acc-table tr.acc-group { display: block; border-radius: 10px; margin-top: 8px; }
-    .table-cards.acc-table tr.acc-group th { display: block; border-radius: 10px; }
+.table-cards.acc-table .btn-act, .table-cards.acc-table .dropdown-toggle, .table-cards.data-table .btn-act, .table-cards.data-table .dropdown-toggle { min-width: 40px; min-height: 40px; }
+.table-cards.acc-table .acc-contact a, .table-cards.data-table .row-contact a { display: inline-flex; align-items: center; min-height: 40px; }
+.table-cards.acc-table tr.acc-group, .table-cards.data-table tr.row-group { display: block; border-radius: 10px; margin-top: 8px; }
+.table-cards.acc-table tr.acc-group th, .table-cards.data-table tr.row-group th { display: block; border-radius: 10px; }
 }
 /* the list while another filter, search or page is on its way */
 #accResults { transition: opacity .12s ease; }
 #accResults.is-loading { opacity: .55; pointer-events: none; }
+
+/* lists of every page (docs/DESIGN.md) */
+[data-live-part] { transition: opacity .12s ease; }
+[data-live-part].is-loading { opacity: .55; pointer-events: none; }
+.coin { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; font-weight: 800; font-size: 14px; color: var(--primary); background: var(--primary-soft); flex: 0 0 auto; }
+.coin.is-off { color: var(--muted); background: var(--hover); }
+.data-table td.is-num, .data-table th.is-num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.list-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.list-tools .form-control, .list-tools .form-select { width: auto; min-width: 150px; }
+.list-tools .grow { flex: 1 1 220px; }
+.list-count { margin-inline-start: auto; color: var(--muted); font-size: 12.5px; }

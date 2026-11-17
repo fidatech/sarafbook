@@ -40,7 +40,8 @@
             "app/Helpers/CurrencyHelper.php",
             "app/Helpers/WhatsAppHelper.php",
             "app/Helpers/activity_helper.php",
-            "app/Helpers/amount.php"
+            "app/Helpers/amount.php",
+            "app/Helpers/pages.php"
         ]
     },
     "autoload-dev": {

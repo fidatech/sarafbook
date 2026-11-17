@@ -15,7 +15,29 @@ class CurrenciesController extends Controller
 {
     public function index()
     {
-        return view('admin.currencies.index');
+        $currencies = Currency::query()->orderByDesc('is_default')->orderByDesc('is_active')->orderBy('id')->get();
+        $used = $this->usedCurrencyIds();
+
+        return page('admin.currencies.index', compact('currencies', 'used'));
+    }
+
+    /** Currencies that money was recorded in: they can be switched off but not deleted. */
+    private function usedCurrencyIds(): array
+    {
+        $ids = [];
+        foreach (['transactions' => ['currency_id'], 'account_balances' => ['currency_id'], 'exchanges' => ['from_currency_id', 'to_currency_id'],
+            'remittances' => ['currency_id'], 'expenses' => ['currency_id']] as $table => $columns) {
+            if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
+                continue;
+            }
+            foreach ($columns as $column) {
+                if (\Illuminate\Support\Facades\Schema::hasColumn($table, $column)) {
+                    $ids = array_merge($ids, DB::table($table)->distinct()->pluck($column)->all());
+                }
+            }
+        }
+
+        return array_values(array_unique(array_map('intval', array_filter($ids))));
     }
 
     public function fetch(Request $request)
@@ -86,8 +108,8 @@ class CurrenciesController extends Controller
 
             $request->merge([
                 'code' => $code,
-                'is_default' => $request->has('is_default'),
-                'is_active' => $request->has('is_active'),
+                'is_default' => $request->boolean('is_default'),
+                'is_active' => $request->boolean('is_active'),
             ]);
 
             /**
@@ -237,8 +259,8 @@ class CurrenciesController extends Controller
 
             $request->merge([
                 'code' => $code,
-                'is_default' => $request->has('is_default'),
-                'is_active' => $request->has('is_active'),
+                'is_default' => $request->boolean('is_default'),
+                'is_active' => $request->boolean('is_active'),
             ]);
 
             /**
@@ -400,6 +422,12 @@ class CurrenciesController extends Controller
 
     public function destroy(Currency $currency)
     {
+        if (in_array($currency->id, $this->usedCurrencyIds(), true)) {
+            return done(__('This currency has records, so it cannot be deleted. Switch it off instead.'), null, false);
+        }
+        if ($currency->is_default) {
+            return done(__('The default currency cannot be deleted.'), null, false);
+        }
         $name = $currency->name;
         $code = $currency->code;
 

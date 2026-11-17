@@ -243,6 +243,11 @@ preg_match_all('/\$icon\s*=\s*\'([a-z0-9-]+)\'/', $sources, $m);
 foreach ($m[1] as $name) {
     $wanted['s-'.$name] = true;
 }
+// ico('pen') and $ico('pen', 'me-1') in views (plain icon markup for long lists)
+preg_match_all('/\bico\(\s*\'([a-z0-9-]+)\'/', $sources, $m);
+foreach ($m[1] as $name) {
+    $wanted['s-'.$name] = true;
+}
 // #s-sun / #r-eye referenced from JavaScript, or listed in the safelist
 preg_match_all('/#([sr]-[a-z0-9-]+)\b/', $sources, $m);
 foreach ($m[1] as $id) {

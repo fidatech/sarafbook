@@ -413,10 +413,155 @@ if (!a || a.origin !== location.origin || a.target === '_blank' || a.hasAttribut
 if (a.pathname === location.pathname && a.search === location.search) return;
 progress.classList.add('is-active');
 });
+ERP.live = function (form) {
+if (!form || form._live || !window.fetch || !window.DOMParser) return;
+form._live = true;
+var names = (form.getAttribute('data-live') || 'list').split(',').map(function (s) { return s.trim(); });
+var parts = function () { var o = {}; names.forEach(function (n) { o[n] = $('[data-live-part="' + n + '"]'); }); return o; };
+var main = function () { return parts()[names[0]]; };
+if (!main()) return;
+var cache = {}, current = null, typing = null;
+var savedAt = function () { return store.get('sb.saved', 0); };
+var clearBtn = $('[data-live-clear]', form);
+var urlOf = function () {
+var params = new URLSearchParams(new FormData(form));
+Array.from(params.keys()).forEach(function (k) { if (!params.get(k) || k === 'page') params.delete(k); });
+$$('[data-default]', form).forEach(function (el) { if (params.get(el.name) === el.getAttribute('data-default')) params.delete(el.name); });
+var q = params.toString();
+return location.pathname + (q ? '?' + q : '');
+};
+var get = function (url) {
+var hit = cache[url];
+if (hit && hit.at > savedAt() && Date.now() - hit.at < 60000) return hit.p;
+var p = fetch(url, { headers: { 'X-Fragment': names.join(','), 'Accept': 'text/html' }, credentials: 'same-origin' })
+.then(function (r) { if (!r.ok || r.redirected) throw new Error(r.status); return r.text(); });
+cache[url] = { at: Date.now(), p: p };
+p.catch(function () { delete cache[url]; });
+return p;
+};
+var show = function (url, push) {
+var mine = current = url, started = performance.now(), box = main();
+box.classList.add('is-loading'); box.setAttribute('aria-busy', 'true');
+if (progress) progress.classList.add('is-active');
+get(url).then(function (html) {
+if (mine !== current) return;
+var doc = new DOMParser().parseFromString(html, 'text/html'), now = parts();
+names.forEach(function (n) {
+var next = doc.querySelector('[data-live-part="' + n + '"]');
+if (!next) throw new Error('part ' + n);
+if (now[n]) now[n].replaceWith(next);
+});
+var filtered = (main().getAttribute('data-filtered') === '1');
+if (clearBtn) clearBtn.hidden = !filtered;
+if (push === 'push') history.pushState({ live: 1 }, '', url);
+else if (push === 'replace') history.replaceState({ live: 1 }, '', url);
+$$('table.table', main()).forEach(function (t) { ERP.cardify(t); });
+document.dispatchEvent(new CustomEvent('erp:live', { detail: { form: form } }));
+if (ERP.timing) ERP.timing('list', performance.now() - started);
+}).catch(function () {
+if (mine === current) location.href = url;
+}).finally(function () {
+if (mine !== current) return;
+var b = main(); if (b) { b.classList.remove('is-loading'); b.removeAttribute('aria-busy'); }
+if (progress) progress.classList.remove('is-active');
+});
+};
+var sync = function (url) {
+var params = new URL(url, location.href).searchParams;
+Array.from(form.elements).forEach(function (el) {
+if (!el.name || el.type === 'submit' || el.type === 'hidden') return;
+if (el.type === 'checkbox' || el.type === 'radio') el.checked = params.getAll(el.name).indexOf(el.value) !== -1;
+else el.value = params.get(el.name) || el.getAttribute('data-default') || '';
+});
+};
+history.replaceState({ live: 1 }, '', location.href);
+var start = location.pathname + location.search, keep = '';
+names.forEach(function (n) { var p = parts()[n]; if (p) keep += p.outerHTML; });
+cache[start] = { at: Date.now(), p: Promise.resolve(keep) };
+form.addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(typing); show(urlOf(), 'push'); });
+form.addEventListener('change', function (e) {
+if (e.target.matches('select, input[type=checkbox], input[type=radio], input[type=date], input[type=month]')) show(urlOf(), 'push');
+});
+form.addEventListener('input', function (e) {
+if (!e.target.matches('input[type=search], input[type=text]')) return;
+clearTimeout(typing);
+typing = setTimeout(function () { show(urlOf(), 'replace'); }, 300);
+});
+if (clearBtn) clearBtn.addEventListener('click', function (e) {
+e.preventDefault(); sync(location.pathname); show(location.pathname, 'push');
+});
+var pageLink = function (e) {
+var a = e.target.closest && e.target.closest('a[href]');
+if (!a || !a.closest('.pagination, [data-live-link]')) return null;
+var box = main(); return box && box.contains(a) && a.origin === location.origin ? a : null;
+};
+document.addEventListener('click', function (e) {
+if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+var a = pageLink(e); if (!a) return;
+e.preventDefault();
+show(a.pathname + a.search, 'push');
+var top = form.getBoundingClientRect().top;
+if (top < 0) form.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}, true);
+document.addEventListener('pointerover', function (e) { var a = pageLink(e); if (a) get(a.pathname + a.search).catch(function () {}); });
+window.addEventListener('popstate', function (e) {
+if (!e.state || !e.state.live) return;
+sync(location.href);
+show(location.pathname + location.search, null);
+});
+};
+var fillForm = function (form, data) {
+Object.keys(data || {}).forEach(function (key) {
+var value = data[key];
+var fields = $$('[name="' + key + '"], [name="' + key + '[]"]', form);
+var hasBox = fields.some(function (el) { return el.type === 'checkbox'; });
+fields.forEach(function (el) {
+if (el.type === 'hidden' && hasBox) return; // the 0 sent for an unticked switch
+if (el.type === 'checkbox') el.checked = Array.isArray(value) ? value.map(String).indexOf(el.value) !== -1 : !!value && value !== '0';
+else if (el.type === 'radio') el.checked = String(value) === el.value;
+else if (el.multiple) Array.from(el.options).forEach(function (o) { o.selected = (value || []).map(String).indexOf(o.value) !== -1; });
+else el.value = value == null ? '' : value;
+});
+});
+};
+ERP.openForm = function (modal, opts) {
+if (typeof modal === 'string') modal = $(modal);
+if (!modal) return;
+var form = $('form', modal); if (!form) return;
+opts = opts || {};
+form.reset();
+$$('.is-invalid', form).forEach(function (el) { el.classList.remove('is-invalid'); });
+$$('.invalid-feedback.d-block, [data-form-errors]', form).forEach(function (el) { el.remove(); });
+var editing = !!opts.fill;
+form.action = opts.action || form.getAttribute('data-store') || form.action;
+var method = $('input[name=_method]', form); if (method) method.value = opts.method || (editing ? 'PUT' : 'POST');
+var again = $('input[name=_action]', form); if (again) again.value = form.action;
+var title = $('[data-title-new]', modal);
+if (title) title.textContent = editing ? title.getAttribute('data-title-edit') : title.getAttribute('data-title-new');
+$$('[data-only-new]', form).forEach(function (el) { el.hidden = editing; $$('input,select,textarea', el).forEach(function (f) { f.disabled = editing; }); });
+$$('[data-only-edit]', form).forEach(function (el) { el.hidden = !editing; $$('input,select,textarea', el).forEach(function (f) { f.disabled = !editing; }); });
+if (opts.fill) fillForm(form, opts.fill);
+form.dispatchEvent(new CustomEvent('erp:form-open', { detail: { editing: editing, data: opts.fill || null } }));
+ERP.showModal(modal);
+};
+document.addEventListener('click', function (e) {
+var b = e.target.closest && e.target.closest('[data-modal-form]');
+if (!b) return;
+e.preventDefault();
+var fill = null;
+try { fill = b.getAttribute('data-fill') ? JSON.parse(b.getAttribute('data-fill')) : null; } catch (err) {}
+ERP.openForm(b.getAttribute('data-modal-form'), { fill: fill, action: b.getAttribute('data-action'), method: b.getAttribute('data-method') });
+});
+document.addEventListener('shown.bs.modal', function (e) {
+var first = $('[autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea', e.target);
+if (first && !first.closest('[hidden]')) try { first.focus(); } catch (err) {}
+});
 var onScroll = function () { body.classList.toggle('is-scrolled', window.scrollY > 28); };
 window.addEventListener('scroll', onScroll, { passive: true });
 onScroll();
 ERP.rehydrate();
+$$('form[data-live]').forEach(ERP.live);
+var reopen = $('.modal[data-reopen]'); if (reopen) ERP.showModal(reopen);
 window.addEventListener('load', function () { fitAll(); cardifyAll(); });
 var active = $('#sidebarMenu .menu-sublink.active, #sidebarMenu .menu-item.active > .menu-link');
 var scroller = $('#sidebarScroll');
