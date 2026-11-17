@@ -48,13 +48,68 @@ class TransactionsController extends Controller
         ]);
     }
 
-    public function index()
+    /**
+     * The transactions page: the form for a new entry (or changing one) and the list of every
+     * visible transaction, filtered and paged on the server, with the totals of what is shown.
+     */
+    public function index(Request $request)
     {
-        return view('admin.transactions.index', [
-            'accounts'   => Account::orderBy('id')->get(),
-            'sarafs'     => Account::where('account_sub_category_id', 2)->orderBy('name')->get(),
-            'currencies' => Currency::orderBy('id')->get(),
-        ]);
+        $currencies = Currency::orderBy('id')->get();
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'account_id' => $request->integer('account_id') ?: null,
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'type' => in_array($request->query('type'), ['credit', 'debit'], true) ? $request->query('type') : '',
+            'source' => in_array($request->query('source'), ['journal', 'exchanges', 'remittances', 'expenses'], true) ? $request->query('source') : '',
+            'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('from')) ? $request->query('from') : '',
+            'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('to')) ? $request->query('to') : '',
+        ];
+        $filtered = collect($filters)->filter(fn ($v) => $v !== '' && $v !== null)->isNotEmpty();
+
+        $base = function () use ($filters) {
+            return Transaction::query()
+                ->where('transactions.is_visible', true)
+                ->when($filters['account_id'], fn ($q, $v) => $q->where('transactions.account_id', $v))
+                ->when($filters['currency_id'], fn ($q, $v) => $q->where('transactions.currency_id', $v))
+                ->when($filters['type'] !== '', fn ($q) => $q->where('transactions.transaction_type', $filters['type']))
+                ->when($filters['source'] === 'journal', fn ($q) => $q->where(fn ($w) => $w->where('transactions.table_name', 'Journal')->orWhereNull('transactions.table_name')))
+                ->when(in_array($filters['source'], ['exchanges', 'remittances', 'expenses'], true), fn ($q) => $q->where('transactions.table_name', $filters['source']))
+                ->when($filters['from'] !== '', fn ($q) => $q->where('transactions.created_at', '>=', $filters['from'].' 00:00:00'))
+                ->when($filters['to'] !== '', fn ($q) => $q->where('transactions.created_at', '<=', $filters['to'].' 23:59:59'))
+                ->when($filters['q'] !== '', function ($q) use ($filters) {
+                    $term = '%'.$filters['q'].'%';
+                    $q->where(fn ($w) => $w->where('transactions.note', 'like', $term)->orWhere('transactions.reference', 'like', $term)
+                        ->orWhereIn('transactions.account_id', Account::query()->where('name', 'like', $term)->orWhere('code', 'like', $term)->select('id')));
+                });
+        };
+
+        $rows = $base()->with(['account:id,name,code,account_sub_category_id', 'currency:id,code'])
+            ->orderByDesc('transactions.created_at')->orderByDesc('transactions.id')
+            ->paginate(25)->withQueryString();
+
+        // totals of what the filters show; without filters, of today, so the page stays fast
+        $totalsQuery = $filtered ? $base() : $base()->where('transactions.created_at', '>=', now()->startOfDay());
+        $totals = $totalsQuery->join('currencies as c', 'c.id', '=', 'transactions.currency_id')
+            ->groupBy('c.id', 'c.code')->orderBy('c.id')
+            ->selectRaw("c.code, SUM(CASE WHEN transaction_type = 'credit' THEN amount ELSE 0 END) AS credit,
+                SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE 0 END) AS debit, COUNT(*) AS n")
+            ->get();
+
+        $editing = null;
+        if ($request->filled('edit')) {
+            $editing = $this->fetch((int) $request->query('edit'))->getData(true)['transaction'] ?? null;
+        }
+
+        return page('admin.transactions.index', [
+            'accounts' => Account::query()->where('is_active', true)->orderBy('code')->get(['id', 'name', 'code', 'account_sub_category_id']),
+            'currencies' => $currencies,
+            'rows' => $rows,
+            'totals' => $totals,
+            'filters' => $filters,
+            'filtered' => $filtered,
+            'editing' => $editing,
+            'cashId' => Account::where('account_sub_category_id', 3)->value('id'),
+        ], ['list', 'totals']);
     }
 
     public function data(Request $request)
@@ -231,7 +286,7 @@ class TransactionsController extends Controller
             'entries.*.currency_id' => 'required|exists:currencies,id',
             'entries.*.amount'      => 'required|numeric|min:0.01',
             'entries.*.type'        => 'required|in:credit,debit',
-            'entries.*.attachment'  => 'nullable|file|max:5120',
+            'entries.*.attachment'  => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf|max:5120',
             'transaction_mode'      => 'required|in:treasure,no_track,track',
             'track_account_id'      => 'nullable|exists:accounts,id',
             'reference'             => 'nullable|string|max:255',
@@ -286,7 +341,7 @@ class TransactionsController extends Controller
                         mkdir(tenant_public_path($folder), 0755, true);
                     }
 
-                    $name = time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
+                    $name = time() . '_' . Str::random(8) . '.' . upload_extension($file);
 
                     $file->move(tenant_public_path($folder), $name);
 
@@ -321,9 +376,7 @@ class TransactionsController extends Controller
             }
         });
 
-        return response()->json([
-            'message' => __('transactions.saved_transactions')
-        ]);
+        return done(__('transactions.saved_transactions'), route('admin.transactions.index'));
     }
 
     public function update(Request $request, $linkedId)
@@ -335,7 +388,7 @@ class TransactionsController extends Controller
             'entries.*.currency_id' => 'required|exists:currencies,id',
             'entries.*.amount'      => 'required|numeric|min:0.01',
             'entries.*.type'        => 'required|in:credit,debit',
-            'entries.*.attachment'  => 'nullable|file|max:5120',
+            'entries.*.attachment'  => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf|max:5120',
             'transaction_mode'      => 'nullable|in:treasure,no_track,track',
             'track_account_id'      => 'nullable|exists:accounts,id',
             'reference'             => 'nullable|string|max:255',
@@ -354,9 +407,7 @@ class TransactionsController extends Controller
         }
 
         if ($oldTransactions->isEmpty()) {
-            return response()->json([
-                'message' => __('transactions.original_missing')
-            ], 404);
+            return done(__('transactions.original_missing'), route('admin.transactions.index'), false, 404);
         }
 
         $oldMeta = $this->detectTransactionModeFromRows($oldTransactions, $accountId, $cashId);
@@ -370,9 +421,7 @@ class TransactionsController extends Controller
             : $oldMeta['track_account_id'];
 
         if ($mode === 'track' && !$trackId) {
-            return response()->json([
-                'message' => __('transactions.track_required')
-            ], 422);
+            return done(__('transactions.track_required'), null, false, 422);
         }
 
         $account      = Account::findOrFail($accountId);
@@ -398,7 +447,7 @@ class TransactionsController extends Controller
             $originalCreatedAt
         ) {
 
-            Transaction::where('linked_id', $linkedId)->delete();
+            Transaction::where('linked_id', $linkedId)->get()->each->delete(); // one by one, so the balances follow
 
             foreach ($request->entries as $entry) {
 
@@ -440,7 +489,7 @@ class TransactionsController extends Controller
                         mkdir(tenant_public_path($folder), 0755, true);
                     }
 
-                    $name = time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
+                    $name = time() . '_' . Str::random(8) . '.' . upload_extension($file);
 
                     $file->move(tenant_public_path($folder), $name);
 
@@ -480,9 +529,7 @@ class TransactionsController extends Controller
             }
         });
 
-        return response()->json([
-            'message' => __('transactions.updated_transaction')
-        ]);
+        return done(__('transactions.updated_transaction'), route('admin.transactions.index'));
     }
 
     public function destroy($id)
@@ -586,9 +633,7 @@ class TransactionsController extends Controller
             }
         });
 
-        return response()->json([
-            'message' => __('transactions.deleted_successfully')
-        ]);
+        return done(__('transactions.deleted_successfully'));
     }
 
     private function normalizeTransactionTableName(?string $tableName): ?string
@@ -830,7 +875,7 @@ class TransactionsController extends Controller
                         mkdir(tenant_public_path($folder), 0755, true);
                     }
 
-                    $name = time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
+                    $name = time() . '_' . Str::random(8) . '.' . upload_extension($file);
 
                     $file->move(tenant_public_path($folder), $name);
 

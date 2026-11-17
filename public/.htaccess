@@ -3,6 +3,8 @@
         Options -MultiViews -Indexes
     </IfModule>
     RewriteEngine On
+    # uploaded files are never run as programs
+    RewriteRule ^(?:attachments|images|uploads|storage)/.*\.(?:php\d?|phtml|phar|pl|py|cgi|sh)$ - [F,NC,L]
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
     RewriteCond %{HTTP:x-xsrf-token} .

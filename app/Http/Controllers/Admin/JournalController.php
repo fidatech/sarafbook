@@ -14,12 +14,58 @@ use App\Models\Setting;
 
 class JournalController extends Controller
 {
-    public function index()
+    /**
+     * Every ledger line (the safe's side too), newest first, with colour marks and the OK tick
+     * used to check the books, filtered and paged on the server. The totals at the top come from
+     * the stored balances, so they cost nothing however long the books are.
+     */
+    public function index(Request $request)
     {
-        $accounts   = DB::table('accounts')->select('id', 'name', 'code', 'account_sub_category_id')->get();
-        $currencies = DB::table('currencies')->select('id', 'code', 'symbol')->get();
+        $currencies = DB::table('currencies')->select('id', 'code', 'symbol')->orderBy('id')->get();
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'account_id' => $request->integer('account_id') ?: null,
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'color' => preg_match('/^(none|#[0-9A-Fa-f]{6})$/', (string) $request->query('color')) ? (string) $request->query('color') : '',
+            'is_ok' => in_array((string) $request->query('is_ok'), ['0', '1'], true) ? (string) $request->query('is_ok') : '',
+            'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('from')) ? $request->query('from') : '',
+            'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('to')) ? $request->query('to') : '',
+        ];
+        $filtered = collect($filters)->filter(fn ($v) => $v !== '' && $v !== null)->isNotEmpty();
 
-        return view('admin.journal.index', compact('accounts', 'currencies'));
+        $rows = Transaction::query()->with(['account:id,name,code,account_sub_category_id,contact', 'currency:id,code'])
+            ->when($filters['account_id'], fn ($q, $v) => $q->where('account_id', $v))
+            ->when($filters['currency_id'], fn ($q, $v) => $q->where('currency_id', $v))
+            ->when($filters['color'] === 'none', fn ($q) => $q->whereNull('color'))
+            ->when($filters['color'] !== '' && $filters['color'] !== 'none', fn ($q) => $q->where('color', $filters['color']))
+            ->when($filters['is_ok'] !== '', fn ($q) => $q->where('is_ok', $filters['is_ok'] === '1'))
+            ->when($filters['from'] !== '', fn ($q) => $q->where('created_at', '>=', $filters['from'].' 00:00:00'))
+            ->when($filters['to'] !== '', fn ($q) => $q->where('created_at', '<=', $filters['to'].' 23:59:59'))
+            ->when($filters['q'] !== '', function ($q) use ($filters) {
+                $term = '%'.$filters['q'].'%';
+                $q->where(fn ($w) => $w->where('note', 'like', $term)->orWhere('reference', 'like', $term)
+                    ->orWhereIn('account_id', DB::table('accounts')->where('name', 'like', $term)->orWhere('code', 'like', $term)->select('id')));
+            })
+            ->orderByDesc('created_at')->orderByDesc('id')
+            ->paginate(50)->withQueryString();
+
+        // where the money is, by currency: customers, Sarafs and the safe from the stored balances
+        $position = DB::table('account_balances as b')
+            ->join('accounts as a', 'a.id', '=', 'b.account_id')
+            ->join('currencies as c', 'c.id', '=', 'b.currency_id')
+            ->groupBy('c.id', 'c.code')->orderBy('c.id')
+            ->selectRaw('c.code,
+                SUM(CASE WHEN a.account_sub_category_id = 1 THEN b.balance ELSE 0 END) AS customers,
+                SUM(CASE WHEN a.account_sub_category_id = 2 THEN b.balance ELSE 0 END) AS saraf,
+                SUM(CASE WHEN a.account_sub_category_id = 3 THEN b.balance ELSE 0 END) AS cash')
+            ->havingRaw('SUM(ABS(b.balance)) > 0')
+            ->get();
+
+        return page('admin.journal.index', [
+            'rows' => $rows, 'currencies' => $currencies, 'filters' => $filters, 'filtered' => $filtered, 'position' => $position,
+            'accounts' => DB::table('accounts')->select('id', 'name', 'code')->orderBy('code')->get(),
+            'colors' => ['#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#8e24aa'],
+        ]);
     }
 
     // --------------------------------------------------
@@ -276,9 +322,7 @@ class JournalController extends Controller
             }
         });
 
-        return response()->json([
-            'message' => 'Deleted successfully'
-        ]);
+        return done(__('transactions.deleted_successfully'));
     }
 
 
@@ -310,7 +354,11 @@ class JournalController extends Controller
             ]);
         }
 
-        $transactions = $query->orderBy('t.created_at')->get();
+        // without chosen dates the last 30 days are printed, and never more than 5,000 lines
+        if (! ($request->filled('start_date') && $request->filled('end_date'))) {
+            $query->where('t.created_at', '>=', now()->subDays(30)->startOfDay());
+        }
+        $transactions = $query->orderBy('t.created_at')->limit(5000)->get();
 
         // ✅ Running balance per currency
         $balances = [];

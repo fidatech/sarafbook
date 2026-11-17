@@ -201,7 +201,7 @@ class SarafController extends Controller
         try {
             $hasTransactions = Transaction::where('account_id', $account->id)->exists();
             if ($hasTransactions) {
-                Transaction::where('account_id', $account->id)->delete();
+                Transaction::where('account_id', $account->id)->get()->each->delete(); // one by one, so the balances follow
             }
             $account->delete();
 

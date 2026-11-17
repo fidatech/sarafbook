@@ -1344,7 +1344,7 @@ class RemittanceModalController extends Controller
             }
             $linkedId = $remittance->linked_id ?: (string) Str::uuid();
 
-            Transaction::where('linked_id', $linkedId)->delete();
+            Transaction::where('linked_id', $linkedId)->get()->each->delete(); // one by one, so the balances follow
 
             $status = (
                 $remittanceMode === 'no_track' &&

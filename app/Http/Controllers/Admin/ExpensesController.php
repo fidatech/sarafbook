@@ -18,13 +18,43 @@ use Illuminate\Support\Str;
 
 class ExpensesController extends Controller
 {
-    public function index()
+    /**
+     * Expenses in the fida-sarafi style: the list with its filters and the totals by category and
+     * currency of what is shown, all counted by the database; one pop-up to add or change one.
+     */
+    public function index(Request $request)
     {
-        $currencies        = Currency::orderBy('id')->get();
+        $currencies = Currency::orderBy('id')->get();
         $expenseCategories = ExpenseCategory::orderBy('name')->get();
         $cashAccounts = Account::whereIn('account_sub_category_id', [3, 5])->orderBy('id')->get();
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'expense_category_id' => $request->integer('expense_category_id') ?: null,
+            'expense_type' => in_array($request->query('expense_type'), ['company', 'personal', 'project'], true) ? $request->query('expense_type') : '',
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('from')) ? $request->query('from') : '',
+            'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('to')) ? $request->query('to') : '',
+        ];
+        $filtered = collect($filters)->filter(fn ($v) => $v !== '' && $v !== null)->isNotEmpty();
+        $base = fn () => Expense::query()
+            ->when($filters['q'] !== '', fn ($q) => $q->where('description', 'like', '%'.$filters['q'].'%'))
+            ->when($filters['expense_category_id'], fn ($q, $v) => $q->where('expense_category_id', $v))
+            ->when($filters['expense_type'] !== '', fn ($q) => $q->where('expense_type', $filters['expense_type']))
+            ->when($filters['currency_id'], fn ($q, $v) => $q->where('currency_id', $v))
+            ->when($filters['from'] !== '', fn ($q) => $q->whereDate('expense_date', '>=', $filters['from']))
+            ->when($filters['to'] !== '', fn ($q) => $q->whereDate('expense_date', '<=', $filters['to']));
 
-        return view('admin.expenses.index', compact('currencies', 'expenseCategories', 'cashAccounts'));
+        $rows = $base()->with(['currency:id,code', 'paymentCurrency:id,code', 'expenseCategory:id,name', 'paidFromAccount:id,name,code'])
+            ->orderByDesc('expense_date')->orderByDesc('id')
+            ->paginate(25)->withQueryString();
+
+        $byCategory = $base()->leftJoin('expense_categories as ec', 'ec.id', '=', 'expenses.expense_category_id')
+            ->join('currencies as c', 'c.id', '=', 'expenses.currency_id')
+            ->groupBy('ec.name', 'c.code')
+            ->selectRaw('COALESCE(ec.name, ?) AS category, c.code, SUM(expenses.amount) AS total, COUNT(*) AS n', [__('No category')])
+            ->orderByDesc('total')->get();
+
+        return page('admin.expenses.index', compact('currencies', 'expenseCategories', 'cashAccounts', 'rows', 'byCategory', 'filters', 'filtered'), ['list', 'totals']);
     }
 
     public function data(Request $request)
@@ -200,7 +230,7 @@ class ExpensesController extends Controller
         // Upload attachment
         $path = null;
         if ($request->attachment != '') {
-            $fileName = time() . '.' . request()->attachment->getClientOriginalExtension();
+            $fileName = time() . '.' . upload_extension(request()->attachment);
             $path = $fileName;
             request()->attachment->move(tenant_public_path('assets/attachments'), $fileName);
         } else {
@@ -257,7 +287,7 @@ class ExpensesController extends Controller
         $expense->transaction_id = $transaction->id;
         $expense->save();
 
-        return response()->json(['message' => __('expenses.created')]);
+        return done(__('expenses.created'));
     }
 
     public function update(Request $request, Expense $expense)
@@ -276,17 +306,14 @@ class ExpensesController extends Controller
             'attachment'          => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
         ]);
 
-        // Update attachment
-        if ($request->attachment != '') {
-            if ($expense->attachment != '' && file_exists(tenant_public_path('assets/attachments/' . $expense->attachment))) {
-                unlink(tenant_public_path('assets/attachments/' . $expense->attachment));
+        // a new attachment replaces the old one; without one the old stays
+        $path = $expense->attachment_path;
+        if ($request->hasFile('attachment')) {
+            if ($path && basename($path) === $path && file_exists(tenant_public_path('assets/attachments/' . $path))) {
+                @unlink(tenant_public_path('assets/attachments/' . $path));
             }
-
-            $fileName = time() . '.' . request()->attachment->getClientOriginalExtension();
-            $path = $fileName;
-            request()->attachment->move(tenant_public_path('assets/attachments'), $fileName);
-        } else {
-            $path = $request->attachment;
+            $path = time() . '.' . upload_extension($request->file('attachment'));
+            $request->file('attachment')->move(tenant_public_path('assets/attachments'), $path);
         }
 
         // Update core fields
@@ -301,7 +328,7 @@ class ExpensesController extends Controller
             'rate'                => $request->rate,
             'operation_type'      => $request->operation_type,
             'description'         => $request->description,
-            'attachment'          => $path,
+            'attachment_path'     => $path,
         ]);
 
         // Sync transaction
@@ -312,11 +339,12 @@ class ExpensesController extends Controller
                 'operation_type' => $request->operation_type,
                 'currency_id' => $request->currency_id,
                 'payment_currency_id' => $request->payment_currency_id,
-                'note'   => '(Updated) - ' . $expense->description,
+                'note'   => $expense->description,
+                'attachment' => $path,
             ]);
         }
 
-        return response()->json(['message' => __('expenses.updated')]);
+        return done(__('expenses.updated'));
     }
 
 
@@ -325,8 +353,9 @@ class ExpensesController extends Controller
     // ============================================
     public function destroy(Expense $expense)
     {
-        if ($expense->attachment_path) {
-            Storage::disk('public')->delete($expense->attachment_path);
+        $file = $expense->attachment_path;
+        if ($file && basename($file) === $file && file_exists(tenant_public_path('assets/attachments/' . $file))) {
+            @unlink(tenant_public_path('assets/attachments/' . $file));
         }
 
         if ($expense->transaction) {
@@ -335,7 +364,7 @@ class ExpensesController extends Controller
 
         $expense->delete();
 
-        return response()->json(['message' => __('expenses.removed')]);
+        return done(__('expenses.removed'));
     }
 
     public function summary(Request $request)

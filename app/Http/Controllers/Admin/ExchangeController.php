@@ -147,7 +147,7 @@ class ExchangeController extends Controller
 
     //     DB::transaction(function () use ($request, $exchange) {
 
-    //         Transaction::where('linked_id', $exchange->linked_id)->delete();
+    //         Transaction::where('linked_id', $exchange->linked_id)->get()->each->delete(); // one by one, so the balances follow
 
     //         $operation = $request->operation_type ?? 'multiply';
 
@@ -260,7 +260,7 @@ class ExchangeController extends Controller
 
             DB::transaction(function () use ($exchange) {
 
-                \App\Models\Transaction::where('linked_id', $exchange->linked_id)->delete();
+                \App\Models\Transaction::where('linked_id', $exchange->linked_id)->get()->each->delete(); // one by one, so the balances follow
 
                 $exchange->delete();
             });
@@ -890,7 +890,7 @@ class ExchangeController extends Controller
     ) {
         $linkedId = $exchange->linked_id ?: (string) Str::uuid();
 
-        Transaction::where('linked_id', $linkedId)->delete();
+        Transaction::where('linked_id', $linkedId)->get()->each->delete(); // one by one, so the balances follow
 
         $postingMode = $this->resolveExchangePostingMode($request, $accountId, $cashId);
 
@@ -1563,7 +1563,7 @@ private function postExchangeTransactions(
         ) {
             $linkedId = $exchange->linked_id ?: (string) Str::uuid();
 
-            Transaction::where('linked_id', $linkedId)->delete();
+            Transaction::where('linked_id', $linkedId)->get()->each->delete(); // one by one, so the balances follow
 
             $exchange->update([
                 'date' => $request->date,

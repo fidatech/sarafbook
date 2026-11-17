@@ -50,3 +50,23 @@ if (! function_exists('ico')) {
         return '<i class="fi'.($class !== '' ? ' '.$class : '').'"><svg aria-hidden="true" focusable="false"><use href="'.$sprite.'#s-'.$name.'"/></svg></i>';
     }
 }
+
+if (! function_exists('upload_extension')) {
+    /**
+     * The extension an uploaded attachment is saved with: taken from what the file really is,
+     * never from the sender's file name, and only images and PDF are accepted. Attachments live
+     * in the public folder, so a .php name there could run on the server.
+     */
+    function upload_extension(\Illuminate\Http\UploadedFile $file): string
+    {
+        $ext = strtolower((string) $file->guessExtension());
+        $ext = $ext === 'jpeg' ? 'jpg' : $ext;
+        if (! in_array($ext, ['jpg', 'png', 'webp', 'gif', 'pdf'], true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'attachment' => __('Only pictures (JPG, PNG, WebP, GIF) and PDF files can be attached.'),
+            ]);
+        }
+
+        return $ext;
+    }
+}
