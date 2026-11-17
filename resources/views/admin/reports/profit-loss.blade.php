@@ -1,321 +1,65 @@
 @extends('layouts.admin.base')
+@section('title', __('Profit and loss'))
+@section('modern', '1')
 
-@section('title', __('reports.profit_loss_title'))
-
-@section('css')
-    <style>
-        .pnl-wrapper {
-            max-width: 1000px;
-            margin: auto;
-        }
-
-        .pnl-report {
-            background: #fff;
-            padding: 30px;
-            border-radius: 14px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.06);
-            margin-bottom: 24px;
-            position: relative;
-        }
-
-        .pnl-header {
-            text-align: center;
-            margin-bottom: 10px;
-        }
-
-        .pnl-logo {
-            max-height: 60px;
-            margin-bottom: 10px;
-        }
-
-        .pnl-title {
-            font-size: 22px;
-            font-weight: 700;
-        }
-
-        .pnl-sub {
-            font-size: 13px;
-            color: #6c757d;
-        }
-
-        .pnl-meta {
-            font-size: 12px;
-            text-align: center;
-            margin-top: 5px;
-            color: #777;
-        }
-
-        .pnl-currency {
-            text-align: center;
-            font-weight: 700;
-            margin: 15px 0;
-        }
-
-        .pnl-table {
-            width: 100%;
-            font-size: 14px;
-            border-collapse: collapse;
-        }
-
-        .pnl-table td {
-            padding: 7px 4px;
-        }
-
-        .pnl-section td {
-            font-weight: bold;
-            border-bottom: 2px solid #111;
-            padding-top: 14px;
-        }
-
-        .pnl-total td {
-            font-weight: bold;
-            border-top: 2px solid #111;
-        }
-
-        .pnl-net td {
-            font-size: 16px;
-            font-weight: bold;
-            border-top: 3px double #111;
-        }
-
-        .text-right {
-            text-align: right;
-        }
-
-        .page-number {
-            position: absolute;
-            bottom: 10px;
-            right: 20px;
-            font-size: 12px;
-            color: #777;
-        }
-
-        @media print {
-            body * {
-                visibility: hidden !important;
-            }
-
-            #printArea,
-            #printArea * {
-                visibility: visible !important;
-            }
-
-            #printArea {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-
-            .no-print {
-                display: none !important;
-            }
-
-            .pnl-report {
-                page-break-after: always;
-                box-shadow: none !important;
-            }
-
-            .pnl-report:last-child {
-                page-break-after: auto;
-            }
-        }
-    </style>
-@endsection
+{{-- Profit and loss by currency: commission and exchange profit in, expenses and exchange losses out. --}}
+@php $amountText = fn ($v) => format_amount((float) $v, 2); @endphp
 
 @section('content')
+<x-page-header :title="__('Profit and loss')" icon="chart-line" :subtitle="__('What the business earned and spent, by currency.')">
+    <button type="button" class="btn btn-outline-soft" onclick="window.print()"><x-icon name="print" class="me-1" /> {{ __('Print') }}</button>
+</x-page-header>
 
-    <div class="card no-print rounded-4 mb-3 border-0 shadow">
-        <div class="card-body">
-
-            <div class="d-flex mb-2 gap-2">
-                <button class="btn btn-outline-primary btn-sm" onclick="setThisMonth()">{{ __('ui.this_month') }}</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="setLastMonth()">{{ __('ui.blade_last_month') }}</button>
-                <button class="btn btn-outline-success btn-sm" onclick="setThisYear()">{{ __('ui.this_year') }}</button>
-            </div>
-
-            <div class="row g-2">
-                <div class="col-md-3">
-                    <input type="month" id="from_month" class="form-control">
-                </div>
-
-                <div class="col-md-3">
-                    <input type="month" id="to_month" class="form-control">
-                </div>
-
-                <div class="col-md-3">
-                    <select id="currency_id" class="form-select">
-                        <option value="">{{ __('ui.all_currencies') }}</option>
-                        @foreach ($currencies as $c)
-                            <option value="{{ $c->id }}">{{ $c->code }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="col-md-3 d-flex gap-2">
-                    <button class="btn btn-primary w-100" id="filterBtn">{{ __('ui.blade_filter') }}</button>
-                    <button class="btn btn-dark w-100" id="printBtn">{{ __('ui.print') }}</button>
-                </div>
-            </div>
-
-        </div>
+<div class="card mb-3 no-print">
+    <div class="card-body">
+        <form method="GET" class="list-tools mb-0" data-live="list">
+            <label class="small text-muted" for="plFrom">{{ __('From month') }}</label>
+            <input type="month" class="form-control" id="plFrom" name="from_month" value="{{ $filters['from_month'] }}">
+            <label class="small text-muted" for="plTo">{{ __('To month') }}</label>
+            <input type="month" class="form-control" id="plTo" name="to_month" value="{{ $filters['to_month'] }}">
+            <select class="form-select" name="currency_id" aria-label="{{ __('ui.currency') }}" data-plain>
+                <option value="">{{ __('All currencies') }}</option>
+                @foreach ($currencies as $c)<option value="{{ $c->id }}" @selected($filters['currency_id'] === $c->id)>{{ $c->code }}</option>@endforeach
+            </select>
+            <a class="btn btn-light-secondary" href="{{ url()->current() }}" data-live-clear title="{{ __('Clear the filters') }}" aria-label="{{ __('Clear the filters') }}" @if (! $filtered) hidden @endif><x-icon name="filter-circle-xmark" /></a>
+        </form>
     </div>
+</div>
 
-    <div id="printArea" class="pnl-wrapper"></div>
-
-@endsection
-
-@section('js')
-    <script>
-        function formatNumber(val) {
-            return Number(val || 0).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-        }
-
-        function buildStatement(report, company, period, generatedAt, index, logo) {
-
-            let incomeHtml = '';
-            let expenseHtml = '';
-
-            report.income.forEach(row => {
-                incomeHtml += `
-            <tr>
-                <td>${row.name}</td>
-                <td class="text-right">${formatNumber(row.amount)}</td>
-            </tr>
-        `;
-            });
-
-            report.expenses.forEach(row => {
-                expenseHtml += `
-            <tr>
-                <td>${row.name}</td>
-                <td class="text-right">${formatNumber(row.amount)}</td>
-            </tr>
-        `;
-            });
-
-            let netClass = report.net_profit >= 0 ? 'text-success' : 'text-danger';
-
-            return `
-        <div class="pnl-report">
-
-            <div class="pnl-header">
-                ${logo ? `<img src="/images/${logo}" class="pnl-logo">` : ''}
-                <div class="pnl-title">${company}</div>
-                <div class="pnl-sub">{{ __('ui.blade_overall_profit_loss') }}</div>
-                <div class="pnl-sub">{{ __('ui.blade_accrual_basis') }}</div>
-                <div class="pnl-meta">${period} | {{ __('reports.generated') }} ${generatedAt}</div>
-            </div>
-
-            <div class="pnl-currency">{{ __('reports.currency_label') }} ${report.currency}</div>
-
-            <table class="pnl-table">
-                <tbody>
-
-                    <tr class="pnl-section">
-                        <td colspan="2">{{ __('ui.blade_income') }}</td>
-                    </tr>
-
-                    ${incomeHtml}
-
-                    <tr class="pnl-total">
-                        <td>{{ __('ui.blade_total_income') }}</td>
-                        <td class="text-right">${formatNumber(report.total_income)}</td>
-                    </tr>
-
-                    <tr class="pnl-section">
-                        <td colspan="2">{{ __('ui.blade_expense') }}</td>
-                    </tr>
-
-                    ${expenseHtml}
-
-                    <tr class="pnl-total">
-                        <td>{{ __('ui.blade_total_expense') }}</td>
-                        <td class="text-right">${formatNumber(report.total_expense)}</td>
-                    </tr>
-
-                    <tr class="pnl-net">
-                        <td>{{ __('ui.blade_net_profit_loss') }}</td>
-                        <td class="text-right ${netClass}">
-                            ${formatNumber(report.net_profit)}
-                        </td>
-                    </tr>
-
-                </tbody>
-            </table>
-
-            <div class="page-number">{{ __('reports.page') }} ${index + 1}</div>
-
-        </div>
-    `;
-        }
-
-        function loadPL() {
-
-            $.get('{{ route('admin.reports.profit-loss.data') }}', {
-                from_month: $('#from_month').val(),
-                to_month: $('#to_month').val(),
-                currency_id: $('#currency_id').val()
-            }, function(res) {
-
-                let html = '';
-
-                if (res.reports && res.reports.length) {
-
-                    res.reports.forEach((report, index) => {
-                        html += buildStatement(
-                            report,
-                            res.company,
-                            res.period,
-                            res.generated_at,
-                            index,
-                            res.logo ?? null // pass logo from backend if available
-                        );
-                    });
-
-                } else {
-
-                    html = `
-                <div class="pnl-report text-center text-muted">
-                    {{ __('reports.no_data') }}
+@fragment('list')
+<div data-live-part="list" data-filtered="{{ $filtered ? 1 : 0 }}">
+    <p class="text-muted small">{{ $data['period'] ?? '' }}</p>
+    @if (empty($data['reports']))
+        <div class="card"><div class="card-body"><div class="empty-state"><div class="es-icon"><x-icon name="chart-line" /></div><h2 class="h3">{{ __('Nothing earned or spent in this period') }}</h2></div></div></div>
+    @else
+        <div class="row g-3">
+            @foreach ($data['reports'] as $r)
+                <div class="col-12 col-xl-6">
+                    <section class="card h-100">
+                        <div class="card-header d-flex align-items-center">
+                            <h2 class="h5 card-title mb-0 me-auto"><span class="chip-code">{{ $r['currency'] }}</span></h2>
+                            <span class="text-muted small me-2">{{ $r['net_profit'] < 0 ? __('Loss') : __('Profit') }}</span>
+                            <strong dir="ltr" class="{{ $r['net_profit'] < 0 ? 'is-owed' : 'is-owing' }} fs-5">{{ $r['net_profit'] < 0 ? '−' : '' }}{{ $amountText(abs($r['net_profit'])) }}</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="pl-cols">
+                                <div>
+                                    <h3 class="h6 text-muted">{{ __('Income') }}</h3>
+                                    @forelse ($r['income'] as $line)<div class="exp-cat"><span>{{ $line['name'] }}</span><span dir="ltr" class="is-owing fw-semibold">{{ $amountText($line['amount']) }}</span></div>@empty<p class="text-muted small">—</p>@endforelse
+                                    <div class="exp-cat pl-total"><span>{{ __('Total') }}</span><span dir="ltr">{{ $amountText($r['total_income']) }}</span></div>
+                                </div>
+                                <div>
+                                    <h3 class="h6 text-muted">{{ __('Expense') }}</h3>
+                                    @forelse ($r['expenses'] as $line)<div class="exp-cat"><span>{{ $line['name'] }}</span><span dir="ltr" class="is-owed fw-semibold">{{ $amountText($line['amount']) }}</span></div>@empty<p class="text-muted small">—</p>@endforelse
+                                    <div class="exp-cat pl-total"><span>{{ __('Total') }}</span><span dir="ltr">{{ $amountText($r['total_expense']) }}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
-            `;
-                }
-
-                $('#printArea').html(html);
-            });
-        }
-
-        $('#filterBtn').on('click', loadPL);
-        $('#printBtn').on('click', () => window.print());
-
-        function setThisMonth() {
-            let now = new Date();
-            let m = now.toISOString().slice(0, 7);
-            $('#from_month').val(m);
-            $('#to_month').val(m);
-            loadPL();
-        }
-
-        function setLastMonth() {
-            let d = new Date();
-            d.setMonth(d.getMonth() - 1);
-            let m = d.toISOString().slice(0, 7);
-            $('#from_month').val(m);
-            $('#to_month').val(m);
-            loadPL();
-        }
-
-        function setThisYear() {
-            let y = new Date().getFullYear();
-            $('#from_month').val(y + '-01');
-            $('#to_month').val(y + '-12');
-            loadPL();
-        }
-
-        loadPL();
-    </script>
+            @endforeach
+        </div>
+    @endif
+</div>
+@endfragment
 @endsection

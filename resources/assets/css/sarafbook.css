@@ -376,3 +376,16 @@ div.rh-service { cursor: default; }
 .rm-tab.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .rm-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 767.98px) { .rm-types { grid-template-columns: 1fr; } }
+
+/* balance report */
+.bl-rates { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.bl-rate { display: grid; grid-template-columns: 52px 1fr 1fr; gap: 6px; align-items: center; padding: 6px 8px; border: 1px solid var(--border); border-radius: 10px; }
+.bl-final { border-color: var(--primary); background: var(--primary-soft); }
+#blOut .card.is-loading { opacity: .55; }
+.pl-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.pl-cols .exp-cat + .exp-cat { margin-top: 6px; }
+.pl-total { background: transparent !important; border-top: 1px solid var(--border); border-radius: 0 !important; margin-top: 8px; font-weight: 700; }
+@media (max-width: 575.98px) { .pl-cols { grid-template-columns: 1fr; } }
+.aed-list { display: grid; gap: 4px; max-height: 50vh; overflow-y: auto; }
+.aed-option { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; margin: 0; }
+.aed-option:hover { background: var(--hover); }

@@ -1,137 +1,109 @@
-@php(\App\Models\AedReportEntry::refreshLiveBalances($entries))
 @extends('layouts.admin.base')
 @section('title', __('aed.title'))
-@section('css')
-<style>
-.aed-report { max-width: 1440px; margin-inline: auto; }
-.aed-report [hidden] { display: none !important; }
-.aed-report .card { border: 1px solid #e5e7eb; box-shadow: 0 2px 8px #22304706; border-radius: 12px; }
-.aed-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-.aed-heading h4 { margin: 0; }
-.aed-picker summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: var(--bs-paper-bg, #fff); }
-.aed-picker summary::-webkit-details-marker { display: none; }
-.aed-picker[open] summary { border-color: #666cff; border-radius: 8px 8px 0 0; }
-.aed-picker-panel { border: 1px solid #cbd5e1; border-top: 0; border-radius: 0 0 8px 8px; padding: 12px; background: var(--bs-paper-bg, #fff); }
-.aed-picker-tools { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; gap: 12px; }
-.aed-options { max-height: 280px; overflow-y: auto; }
-.aed-account-option { display: flex; align-items: center; gap: 12px; padding: 11px 10px; margin: 0; border-radius: 6px; cursor: pointer; }
-.aed-account-option:hover, .aed-account-option:has(input:checked) { background: #666cff0d; }
-.aed-account-option input { flex-shrink: 0; margin: 0; }
-.aed-account-option small { display: block; color: #8591a3; }
-.aed-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-block: 20px; }
-.aed-summary .card-body { padding: 20px 24px; }
-.aed-summary strong { font-size: 26px; font-variant-numeric: tabular-nums; margin-top: 6px; }
-.aed-report .table th { background: #f6f7fb; padding: 14px 16px; white-space: nowrap; }
-.aed-report .table td { padding: 12px 16px; vertical-align: middle; }
-.aed-report .table td[dir=ltr] { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.aed-report .table tfoot td { background: #f6f7fb; }
-@media(max-width: 576px) { .aed-summary { grid-template-columns: 1fr; gap: 10px; } .aed-summary strong { font-size: 22px; } }
-</style>
-@endsection
+@section('modern', '1')
+
+{{-- The AED report: chosen customers and Sarafs with their dirham balance and its value in US dollars. --}}
+@php
+    $old = (array) old('account_ids', []);
+    $totalAed = $entries->sum('aed_balance');
+    $totalUsd = $entries->sum('converted_amount');
+@endphp
+
 @section('content')
-<div class="container-fluid py-3 aed-report">
-    <div class="aed-heading">
-        <h4>{{ __('aed.title') }}</h4>
-        <div class="d-flex gap-2 align-items-center">
-        <a class="btn btn-outline-primary" href="{{ route('admin.reports.aed.pdf') }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf me-2"></i>{{ __('aed.pdf') }}</a>
-        @if($currency)<button type="button" id="aed-form-toggle" class="btn btn-primary" aria-controls="aed-add-form" aria-expanded="{{ $errors->any() ? 'true' : 'false' }}"><i class="bi bi-plus-lg me-2"></i>{{ __('aed.add_accounts') }}</button>@endif
+<x-page-header :title="__('aed.title')" icon="money-bill-wave" :subtitle="__('Dirham balances of chosen accounts, and their value in dollars.')">
+    <a class="btn btn-outline-soft" href="{{ route('admin.reports.aed.pdf') }}" target="_blank" rel="noopener" data-no-prefetch><x-icon name="file-pdf" class="me-1" /> {{ __('aed.pdf') }}</a>
+    @if ($currency)<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#aedAdd"><x-icon name="plus" class="me-1" /> {{ __('aed.add_accounts') }}</button>@endif
+</x-page-header>
+
+@if (! $currency)
+    <div class="alert alert-warning">{{ __('aed.missing_currency') }}</div>
+@else
+    <div class="row g-3 mb-3">
+        <div class="col-6"><div class="card h-100"><div class="card-body"><div class="text-muted small">{{ __('aed.total_aed') }}</div><div class="safe-now {{ $totalAed < 0 ? 'is-owed' : '' }}" dir="ltr">{{ number_format($totalAed, 2) }}</div><div class="text-muted small">AED</div></div></div></div>
+        <div class="col-6"><div class="card h-100 bl-final"><div class="card-body"><div class="text-muted small">{{ __('aed.total_usd') }}</div><div class="safe-now {{ $totalUsd < 0 ? 'is-owed' : '' }}" dir="ltr">{{ number_format($totalUsd, 2) }}</div><div class="text-muted small">USD</div></div></div></div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            @if ($entries->isEmpty())
+                <div class="empty-state">
+                    <div class="es-icon"><x-icon name="money-bill-wave" /></div>
+                    <h2 class="h3">{{ __('aed.empty') }}</h2>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#aedAdd"><x-icon name="plus" class="me-1" /> {{ __('aed.add_accounts') }}</button>
+                </div>
+            @else
+                <div class="table-responsive data-wrap">
+                    <table class="table w-100 mb-0 data-table">
+                        <thead><tr><th scope="col">{{ __('aed.customer') }}</th><th scope="col" class="is-num">{{ __('aed.balance') }}</th><th scope="col" class="is-num">{{ __('aed.rate') }}</th><th scope="col" class="is-num">{{ __('aed.converted') }}</th><th scope="col" class="text-end"><span class="visually-hidden">{{ __('ui.actions') }}</span></th></tr></thead>
+                        <tbody>
+                            @foreach ($entries as $entry)
+                                <tr>
+                                    <td><a class="row-name" href="{{ route('admin.accounts.show', $entry->account_id) }}">{{ $entry->account->name }}</a><div class="row-meta" dir="ltr">{{ $entry->account->code }}</div></td>
+                                    <td class="is-num fw-semibold {{ $entry->aed_balance < 0 ? 'is-owed' : 'is-owing' }}" dir="ltr">{{ number_format($entry->aed_balance, 2) }} <small class="text-muted">AED</small></td>
+                                    <td class="is-num text-muted" dir="ltr">{{ $entry->calculated_exchange_rate === null ? '—' : rtrim(rtrim(number_format($entry->calculated_exchange_rate, 8, '.', ''), '0'), '.') }}</td>
+                                    <td class="is-num fw-semibold" dir="ltr">{{ number_format($entry->converted_amount, 2) }} <small class="text-muted">USD</small></td>
+                                    <td class="text-end">
+                                        <form method="POST" action="{{ route('admin.reports.aed.destroy', $entry) }}" class="d-inline" data-confirm="{{ __('Remove :name from this report?', ['name' => $entry->account->name]) }}" data-confirm-ok="{{ __('aed.remove') }}">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="btn-act is-red" title="{{ __('aed.remove') }}" aria-label="{{ __('aed.remove') }}">{!! ico('xmark') !!}</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot><tr class="fw-bold"><td>{{ __('aed.grand_total') }}</td><td class="is-num" dir="ltr">{{ number_format($totalAed, 2) }} AED</td><td></td><td class="is-num" dir="ltr">{{ number_format($totalUsd, 2) }} USD</td><td></td></tr></tfoot>
+                    </table>
+                </div>
+            @endif
         </div>
     </div>
-    @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
-    @if($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-    @if(!$currency)
-        <div class="alert alert-warning">{{ __('aed.missing_currency') }}</div>
-    @else
-        <div id="aed-add-form" class="card mb-3" @if(!$errors->any()) hidden @endif><div class="card-body">
-            <form method="POST" action="{{ route('admin.reports.aed.store') }}" class="row g-3 align-items-end">
+
+    <div class="modal fade" id="aedAdd" tabindex="-1" aria-labelledby="aedAddTitle" aria-hidden="true" @if ($errors->has('account_ids') || $errors->has('account_ids.*')) data-reopen @endif>
+        <div class="modal-dialog modal-dialog-scrollable">
+            <form method="POST" action="{{ route('admin.reports.aed.store') }}" class="modal-content" id="aedForm">
                 @csrf
-                <div class="col-md-10">
-                    <label id="aed-accounts-label" class="form-label">{{ __('aed.customers') }}</label>
-                    <details class="aed-picker" id="aed-picker">
-                        <summary aria-labelledby="aed-accounts-label"><span>{{ __('aed.customers') }}</span><i class="bi bi-chevron-down"></i></summary>
-                        <div id="aed-account-options" class="aed-picker-panel">
-                            <input id="aed-search" type="search" class="form-control mb-3" placeholder="{{ __('aed.search_accounts') }}" aria-label="{{ __('aed.search_accounts') }}">
-                            <div class="aed-picker-tools">
-                                <label class="mb-0"><input type="checkbox" id="aed-select-all" class="form-check-input me-2">{{ __('aed.select_all') }}</label>
-                                <small class="text-muted">{{ __('aed.available', ['count' => $customers->count()]) }}</small>
-                            </div>
-                            <div class="aed-options">
-                                @foreach($customers as $customer)
-                                    <label class="aed-account-option">
-                                        <input type="checkbox" class="form-check-input" name="account_ids[]" value="{{ $customer->id }}" @checked(in_array($customer->id, old('account_ids', [])))>
-                                        <span>
-                                            {{ $customer->name }} ({{ $customer->code }})
-                                            @if($customer->subCategory)
-                                                <small>{{ __('accounts.types')[$customer->subCategory->name] ?? $customer->subCategory->name }}</small>
-                                            @endif
-                                        </span>
-                                    </label>
-                                @endforeach
-                                <div id="aed-no-results" class="text-muted p-3 text-center" @if($customers->isNotEmpty()) hidden @endif>{{ __('aed.no_accounts') }}</div>
-                            </div>
-                        </div>
-                    </details>
-                    <small class="text-muted d-block mt-2" id="aed-selection-status" aria-live="polite">{{ __('aed.available', ['count' => $customers->count()]) }}</small>
+                <div class="modal-header"><h2 class="modal-title h5" id="aedAddTitle">{{ __('aed.add_accounts') }}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Close') }}"></button></div>
+                <div class="modal-body">
+                    @if ($errors->any())<div class="alert alert-danger py-2"><ul class="mb-0 ps-3">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+                    <input type="search" class="form-control mb-2" id="aedSearch" placeholder="{{ __('aed.search_accounts') }}" aria-label="{{ __('aed.search_accounts') }}">
+                    <label class="d-flex align-items-center gap-2 mb-2 small"><input type="checkbox" class="form-check-input" id="aedAll"> {{ __('aed.select_all') }}</label>
+                    <div class="aed-list">
+                        @forelse ($customers as $customer)
+                            <label class="aed-option"><input type="checkbox" class="form-check-input" name="account_ids[]" value="{{ $customer->id }}" @checked(in_array($customer->id, $old))>
+                                <span>{{ $customer->name }} <small class="text-muted" dir="ltr">{{ $customer->code }}</small></span></label>
+                        @empty
+                            <p class="text-muted mb-0">{{ __('aed.no_accounts') }}</p>
+                        @endforelse
+                    </div>
                 </div>
-                <div class="col-md-2"><button id="aed-store" class="btn btn-primary" disabled>{{ __('aed.store') }}</button></div>
+                <div class="modal-footer"><span class="text-muted small me-auto" id="aedCount" aria-live="polite"></span><button type="button" class="btn btn-light-secondary" data-bs-dismiss="modal">{{ __('Cancel') }}</button><button type="submit" class="btn btn-primary" id="aedSave" disabled>{{ __('aed.store') }}</button></div>
             </form>
-        </div></div>
-    @endif
-    <div class="aed-summary">
-        <div><div class="card card-body"><span>{{ __('aed.total_aed') }}</span><strong class="aed-balance-total">{{ number_format($entries->sum('aed_balance'), 2) }} AED</strong></div></div>
-        <div><div class="card card-body"><span>{{ __('aed.total_usd') }}</span><strong class="aed-converted-total">{{ number_format($entries->sum('converted_amount'), 2) }} USD</strong></div></div>
+        </div>
     </div>
-    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
-        <thead><tr><th>#</th><th>{{ __('aed.customer') }}</th><th>{{ __('aed.date') }}</th><th>{{ __('aed.balance') }}</th><th>{{ __('aed.rate') }}</th><th>{{ __('aed.converted') }}</th><th>{{ __('aed.actions') }}</th></tr></thead>
-        <tbody>@forelse($entries as $entry)
-            <tr><td>{{ $loop->iteration }}</td><td>{{ $entry->account->name }} ({{ $entry->account->code }})</td><td>{{ now()->format('Y-m-d') }}</td><td dir="ltr">{{ number_format($entry->aed_balance, 2) }}</td><td class="aed-rate-cell" dir="ltr">{{ $entry->calculated_exchange_rate === null ? '—' : rtrim(rtrim(number_format($entry->calculated_exchange_rate, 8, '.', ''), '0'), '.') }}</td><td class="aed-converted" dir="ltr">{{ number_format($entry->converted_amount, 2) }}</td><td><form method="POST" action="{{ route('admin.reports.aed.destroy', $entry) }}">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger">{{ __('aed.remove') }}</button></form></td></tr>
-        @empty<tr><td colspan="7" class="text-center py-4">{{ __('aed.empty') }}</td></tr>@endforelse</tbody>
-        <tfoot><tr class="fw-bold"><td colspan="3">{{ __('aed.grand_total') }}</td><td class="aed-balance-total" dir="ltr">{{ number_format($entries->sum('aed_balance'), 2) }} AED</td><td></td><td class="aed-converted-total" dir="ltr">{{ number_format($entries->sum('converted_amount'), 2) }} USD</td><td></td></tr></tfoot>
-    </table></div></div>
-</div>
+@endif
 @endsection
-@section('js')
+
+@push('scripts')
 <script>
-(() => {
-    const formToggle = document.getElementById('aed-form-toggle');
-    const addForm = document.getElementById('aed-add-form');
-    const picker = document.getElementById('aed-picker');
-    if (!picker) return;
-    const options = document.getElementById('aed-account-options');
-    const rows = Array.from(options.querySelectorAll('.aed-account-option'));
-    const selectAll = document.getElementById('aed-select-all');
-    const availableText = @json(__('aed.available', ['count' => $customers->count()]));
-    const selectedText = @json(__('aed.selected', ['count' => ':count']));
-    formToggle.addEventListener('click', () => {
-        addForm.hidden = !addForm.hidden;
-        formToggle.setAttribute('aria-expanded', String(!addForm.hidden));
-        picker.open = !addForm.hidden;
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('aedForm'); if (!form) return;
+    var rows = Array.prototype.slice.call(form.querySelectorAll('.aed-option')), all = document.getElementById('aedAll');
+    var text = @json(__('aed.selected', ['count' => ':count']));
+    var sync = function () {
+        var n = rows.filter(function (r) { return r.querySelector('input').checked; }).length;
+        document.getElementById('aedCount').textContent = n ? text.replace(':count', n) : '';
+        document.getElementById('aedSave').disabled = n === 0;
+        var visible = rows.filter(function (r) { return !r.hidden; }), on = visible.filter(function (r) { return r.querySelector('input').checked; }).length;
+        all.checked = visible.length > 0 && on === visible.length; all.indeterminate = on > 0 && on < visible.length;
+    };
+    all.addEventListener('change', function () { rows.forEach(function (r) { if (!r.hidden) r.querySelector('input').checked = all.checked; }); sync(); });
+    form.addEventListener('change', sync);
+    document.getElementById('aedSearch').addEventListener('input', function () {
+        var q = this.value.trim().toLowerCase();
+        rows.forEach(function (r) { r.hidden = q && r.textContent.toLowerCase().indexOf(q) === -1; });
+        sync();
     });
-    function updateSelection() {
-        const count = rows.filter(row => row.querySelector('input').checked).length;
-        document.getElementById('aed-selection-status').textContent = count ? selectedText.replace(':count', count) : availableText;
-        document.getElementById('aed-store').disabled = count === 0;
-        const visible = rows.filter(row => !row.hidden);
-        const checked = visible.filter(row => row.querySelector('input').checked).length;
-        selectAll.checked = visible.length > 0 && checked === visible.length;
-        selectAll.indeterminate = checked > 0 && checked < visible.length;
-        selectAll.disabled = visible.length === 0;
-    }
-    selectAll.addEventListener('change', () => {
-        rows.filter(row => !row.hidden).forEach(row => { row.querySelector('input').checked = selectAll.checked; });
-        updateSelection();
-    });
-    options.addEventListener('change', updateSelection);
-    document.getElementById('aed-search').addEventListener('input', function () {
-        const search = this.value.trim().toLocaleLowerCase();
-        rows.forEach(row => { row.hidden = !row.textContent.toLocaleLowerCase().includes(search); });
-        document.getElementById('aed-no-results').hidden = rows.some(row => !row.hidden);
-        updateSelection();
-    });
-    picker.addEventListener('keydown', event => {
-        if (event.key === 'Escape') { picker.open = false; picker.querySelector('summary').focus(); }
-    });
-    updateSelection();
-})();
+    sync();
+});
 </script>
-@endsection
+@endpush

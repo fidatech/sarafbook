@@ -58,10 +58,55 @@ class ReportsController extends Controller
 
     public function customers(Request $request)
     {
-        $subCategories = AccountSubCategory::all();
-        $currencies = Currency::where('is_active', 1)->get();
-        $company = Setting::first();
-        return view('admin.reports.customers', compact('subCategories', 'currencies', 'company'));
+        return $this->balanceReport($request, 'customers');
+    }
+
+    /**
+     * Customers, creditors and debtors in the fida-sarafi style: one table of accounts and their
+     * balance in each currency, from the stored balances, filtered and paged on the server, with
+     * the totals of everything that matches. Creditors keep the balances above zero (we owe them),
+     * debtors those below (they owe us).
+     */
+    private function balanceReport(Request $request, string $kind)
+    {
+        $currencies = Currency::where('is_active', 1)->orderBy('id')->get(['id', 'code']);
+        $subCategories = AccountSubCategory::orderBy('id')->get();
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'sub_category_id' => $request->integer('sub_category_id') ?: null,
+            'currency_id' => $request->integer('currency_id') ?: null,
+        ];
+        $filtered = collect($filters)->filter(fn ($v) => $v !== '' && $v !== null)->isNotEmpty();
+        $sign = match ($kind) { 'creditors' => '>', 'debtors' => '<', default => null };
+
+        $balances = fn () => DB::table('account_balances as b')
+            ->join('accounts as a', 'a.id', '=', 'b.account_id')
+            ->where('a.is_active', true)->where('a.include_in_reports', true)
+            ->when($kind !== 'customers', fn ($q) => $q->where('a.account_sub_category_id', '!=', 3))
+            ->when($sign, fn ($q) => $q->where('b.balance', $sign, 0), fn ($q) => $q->where('b.balance', '!=', 0))
+            ->when($filters['sub_category_id'], fn ($q, $v) => $q->where('a.account_sub_category_id', $v))
+            ->when($filters['currency_id'], fn ($q, $v) => $q->where('b.currency_id', $v))
+            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w->where('a.name', 'like', '%'.$filters['q'].'%')->orWhere('a.code', 'like', '%'.$filters['q'].'%')));
+
+        $accounts = $balances()->groupBy('a.id', 'a.name', 'a.code', 'a.account_sub_category_id', 'a.contact')
+            ->selectRaw('a.id, a.name, a.code, a.account_sub_category_id, a.contact, MAX(ABS(b.balance)) AS biggest')
+            ->orderByDesc('biggest')->orderBy('a.name')
+            ->paginate(50)->withQueryString();
+        $cells = $balances()->whereIn('a.id', collect($accounts->items())->pluck('id'))
+            ->get(['b.account_id', 'b.currency_id', 'b.balance'])
+            ->groupBy('account_id')->map(fn ($rows) => $rows->pluck('balance', 'currency_id'));
+        $totals = $balances()->groupBy('b.currency_id')
+            ->selectRaw('b.currency_id, SUM(CASE WHEN b.balance > 0 THEN b.balance ELSE 0 END) AS pos, SUM(CASE WHEN b.balance < 0 THEN -b.balance ELSE 0 END) AS neg, COUNT(*) AS n')
+            ->get()->keyBy('currency_id');
+        $columns = $currencies->filter(fn ($c) => isset($totals[$c->id]))->values();
+
+        $print = match ($kind) {
+            'creditors' => route('admin.reports.creditors.export.pdf', array_filter($filters)),
+            'debtors' => route('admin.reports.debtors.export.pdf', array_filter($filters)),
+            default => route('admin.reports.customers.print', array_filter($filters)),
+        };
+
+        return page('admin.reports.balances', compact('kind', 'currencies', 'subCategories', 'filters', 'filtered', 'accounts', 'cells', 'totals', 'columns', 'print'), ['list']);
     }
 
     public function customersData(Request $request)
@@ -221,9 +266,7 @@ class ReportsController extends Controller
 
     public function creditors(Request $request)
     {
-        $currencies = Currency::where('is_active', 1)->get();
-        $subCategories = AccountSubCategory::all();
-        return view('admin.reports.creditors', compact('currencies', 'subCategories'));
+        return $this->balanceReport($request, 'creditors');
     }
 
     public function creditorsData(Request $request)
@@ -324,9 +367,7 @@ class ReportsController extends Controller
 
     public function debtors(Request $request)
     {
-        $currencies = Currency::where('is_active', 1)->get();
-        $subCategories = AccountSubCategory::all();
-        return view('admin.reports.debtors', compact('currencies', 'subCategories'));
+        return $this->balanceReport($request, 'debtors');
     }
 
     public function debtorsData(Request $request)
@@ -423,10 +464,22 @@ class ReportsController extends Controller
             ->stream('debtors_report.pdf');
     }
 
-    public function currency()
+    /** One currency: which accounts brought it in (credit) and which took it out (debit), from the stored balances. */
+    public function currency(Request $request)
     {
-        $currencies = Currency::where('is_active', 1)->get();
-        return view('admin.reports.currency', compact('currencies'));
+        $currencies = Currency::where('is_active', 1)->orderBy('id')->get();
+        $currencyId = $request->integer('currency_id') ?: ($currencies->firstWhere('is_default', true)?->id ?? $currencies->first()?->id);
+        $side = fn ($column) => DB::table('account_balances as b')->join('accounts as a', 'a.id', '=', 'b.account_id')
+            ->where('b.currency_id', $currencyId)->where('a.include_in_reports', true)->where("b.{$column}", '>', 0)
+            ->orderByDesc("b.{$column}")->limit(200)
+            ->get(['a.id', 'a.name', 'a.code', "b.{$column} as amount"]);
+        $credits = $side('credit');
+        $debits = $side('debit');
+        $sums = DB::table('account_balances as b')->join('accounts as a', 'a.id', '=', 'b.account_id')
+            ->where('b.currency_id', $currencyId)->where('a.include_in_reports', true)
+            ->selectRaw('COALESCE(SUM(b.credit), 0) AS credit, COALESCE(SUM(b.debit), 0) AS debit, SUM(CASE WHEN b.credit > 0 THEN 1 ELSE 0 END) AS nc, SUM(CASE WHEN b.debit > 0 THEN 1 ELSE 0 END) AS nd')->first();
+
+        return page('admin.reports.currency', compact('currencies', 'currencyId', 'credits', 'debits', 'sums'), ['list']);
     }
 
     public function currencyData(Request $request)
@@ -525,10 +578,23 @@ class ReportsController extends Controller
             ->stream('currency_report.pdf');
     }
 
-    public function profitLoss()
+    /** Profit and loss by currency for a period of months (everything when none is chosen). */
+    public function profitLoss(Request $request)
     {
-        $currencies = Currency::all();
-        return view('admin.reports.profit-loss', compact('currencies'));
+        $currencies = Currency::orderBy('id')->get();
+        $filters = [
+            'from_month' => preg_match('/^\d{4}-\d{2}$/', (string) $request->query('from_month')) ? $request->query('from_month') : '',
+            'to_month' => preg_match('/^\d{4}-\d{2}$/', (string) $request->query('to_month')) ? $request->query('to_month') : '',
+            'currency_id' => $request->integer('currency_id') ?: null,
+        ];
+        if ($filters['from_month'] && ! $filters['to_month']) {
+            $filters['to_month'] = $filters['from_month'];
+        }
+        $request->merge(array_filter($filters));
+        $data = $this->profitLossData($request)->getData(true);
+        $filtered = collect($filters)->filter()->isNotEmpty();
+
+        return page('admin.reports.profit-loss', compact('currencies', 'filters', 'filtered', 'data'), ['list']);
     }
 
     public function profitLossData(Request $request)
@@ -576,6 +642,17 @@ class ReportsController extends Controller
             ->when($to, fn($q) => $q->whereDate('transactions.created_at', '<=', $to))
             ->when($currencyId, fn($q) => $q->where('transactions.currency_id', $currencyId))
             ->groupBy('transactions.currency_id', 'expense_categories.name')
+            ->get();
+
+        // ===== EXCHANGE LOSSES (an exchange below the rate of the day books its loss as a debit) =====
+        $lossRows = Transaction::query()
+            ->selectRaw('currency_id, SUM(amount) as total')
+            ->where('category', 'exchange_profit')
+            ->where('transaction_type', 'debit')
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($currencyId, fn($q) => $q->where('currency_id', $currencyId))
+            ->groupBy('currency_id')
             ->get();
 
         // ===== BUILD REPORT =====
@@ -631,9 +708,25 @@ class ReportsController extends Controller
             $report[$cid]['total_expense'] += (float)$row->total;
         }
 
+        foreach ($lossRows as $row) {
+            $cid = $row->currency_id;
+            if ((float) $row->total <= 0) {
+                continue;
+            }
+            if (!isset($report[$cid])) {
+                $report[$cid] = [
+                    'currency' => Currency::find($cid)->code ?? 'N/A',
+                    'income' => [], 'expenses' => [], 'total_income' => 0, 'total_expense' => 0, 'net_profit' => 0,
+                ];
+            }
+            $report[$cid]['expenses'][] = ['name' => __('Exchange losses'), 'amount' => (float) $row->total];
+            $report[$cid]['total_expense'] += (float) $row->total;
+        }
+
         foreach ($report as &$r) {
             $r['net_profit'] = $r['total_income'] - $r['total_expense'];
         }
+        unset($r);
 
         // ===== PERIOD TEXT =====
         $period = __('reports.overall');
@@ -658,13 +751,35 @@ class ReportsController extends Controller
         ]);
     }
 
-    public function transactions()
+    /** The transactions report: the visible lines with credit and debit columns, totals, and the Excel file of the same filters. */
+    public function transactions(Request $request)
     {
-        $accounts = \App\Models\Account::where('is_active', 1)->get();
-        $currencies = \App\Models\Currency::where('is_active', 1)->get();
-        $company = Setting::first();
+        $accounts = Account::where('is_active', 1)->orderBy('code')->get(['id', 'name', 'code']);
+        $currencies = Currency::where('is_active', 1)->orderBy('id')->get();
+        $filters = [
+            'account_id' => $request->integer('account_id') ?: null,
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'transaction_type' => in_array($request->query('transaction_type'), ['credit', 'debit'], true) ? $request->query('transaction_type') : '',
+            'from_date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('from_date')) ? $request->query('from_date') : '',
+            'to_date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('to_date')) ? $request->query('to_date') : '',
+        ];
+        $filtered = collect($filters)->filter(fn ($v) => $v !== '' && $v !== null)->isNotEmpty();
+        if (! $filtered) {
+            // the first view is this month, so the totals stay quick with years of books
+            $filters['from_date'] = now()->startOfMonth()->toDateString();
+        }
+        $base = fn () => Transaction::query()->where('transactions.is_visible', 1)
+            ->when($filters['account_id'], fn ($q, $v) => $q->where('transactions.account_id', $v))
+            ->when($filters['currency_id'], fn ($q, $v) => $q->where('transactions.currency_id', $v))
+            ->when($filters['transaction_type'] !== '', fn ($q) => $q->where('transactions.transaction_type', $filters['transaction_type']))
+            ->when($filters['from_date'] !== '', fn ($q) => $q->where('transactions.created_at', '>=', $filters['from_date'].' 00:00:00'))
+            ->when($filters['to_date'] !== '', fn ($q) => $q->where('transactions.created_at', '<=', $filters['to_date'].' 23:59:59'));
+        $rows = $base()->with(['account:id,name,code', 'currency:id,code'])->orderByDesc('transactions.created_at')->orderByDesc('transactions.id')->paginate(50)->withQueryString();
+        $totals = $base()->join('currencies as c', 'c.id', '=', 'transactions.currency_id')->groupBy('c.id', 'c.code')->orderBy('c.id')
+            ->selectRaw("c.code, SUM(CASE WHEN transaction_type = 'credit' THEN amount ELSE 0 END) AS credit, SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE 0 END) AS debit")->get();
+        $excel = route('admin.reports.transactions.export.excel', array_filter($filters));
 
-        return view('admin.reports.transactions', compact('accounts', 'currencies', 'company'));
+        return page('admin.reports.transactions', compact('accounts', 'currencies', 'filters', 'filtered', 'rows', 'totals', 'excel'), ['list']);
     }
 
     public function transactionsData(Request $request)
@@ -1909,21 +2024,31 @@ class ReportsController extends Controller
     });
 }
 
-    public function customerExchangeReport()
+    /**
+     * Exchanges of the chosen customers and period: totals and the pairs counted by the database,
+     * the exchanges themselves 50 to a page.
+     */
+    public function customerExchangeReport(Request $request)
     {
-        $accounts = Account::query()
-            ->where('is_active', 1)
-            ->orderBy('name')
-            ->get();
+        $accounts = Account::query()->where('is_active', 1)->whereIn('account_sub_category_id', [1, 2])->orderBy('code')->get(['id', 'name', 'code']);
+        $currencies = Currency::query()->orderBy('id')->get();
+        $filters = [
+            'account_id' => $request->integer('account_id') ?: null,
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'type' => in_array($request->query('type'), ['sell', 'purchase'], true) ? $request->query('type') : '',
+            'mode' => in_array($request->query('mode'), ['cash', 'customer'], true) ? $request->query('mode') : '',
+            'date_from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('date_from')) ? $request->query('date_from') : now()->startOfMonth()->toDateString(),
+            'date_to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('date_to')) ? $request->query('date_to') : '',
+        ];
+        $request->merge(array_filter($filters, fn ($v) => $v !== '' && $v !== null));
+        $data = $this->customerExchangeReportData($request)->getData(true);
+        $base = Exchange::query();
+        $this->applyExchangeTableReportFilters($base, $request);
+        $rows = $base->with(['account:id,name,code', 'fromCurrency:id,code', 'toCurrency:id,code', 'profitCurrency:id,code'])
+            ->orderByDesc('date')->orderByDesc('id')->paginate(50)->withQueryString();
+        $print = route('admin.reports.customer-exchange-report.print', array_filter($filters));
 
-        $currencies = Currency::query()
-            ->orderBy('id')
-            ->get();
-
-        return view('admin.reports.customer-exchange-report', compact(
-            'accounts',
-            'currencies'
-        ));
+        return page('admin.reports.customer-exchange-report', compact('accounts', 'currencies', 'filters', 'data', 'rows', 'print'), ['list']);
     }
 
     public function customerExchangeReportData(Request $request)
@@ -2172,15 +2297,22 @@ class ReportsController extends Controller
         return $currency->code ?: $currency->name;
     }
 
+    /** Exchanges by the currency given, each with its pairs and totals, for a period. */
     public function currencyExchangeReport(Request $request)
     {
-        $currencies = Currency::query()
-            ->where('is_active', 1)
-            ->orderByRaw("CASE WHEN code = 'USD' THEN 0 ELSE 1 END")
-            ->orderBy('id')
-            ->get();
+        $currencies = Currency::query()->where('is_active', 1)->orderByRaw("CASE WHEN code = 'USD' THEN 0 ELSE 1 END")->orderBy('id')->get();
+        $filters = [
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'type' => in_array($request->query('type'), ['sell', 'purchase'], true) ? $request->query('type') : '',
+            'mode' => in_array($request->query('mode'), ['cash', 'customer'], true) ? $request->query('mode') : '',
+            'date_from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('date_from')) ? $request->query('date_from') : now()->startOfMonth()->toDateString(),
+            'date_to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('date_to')) ? $request->query('date_to') : '',
+        ];
+        $request->merge(array_filter($filters, fn ($v) => $v !== '' && $v !== null));
+        $data = $this->currencyExchangeReportData($request)->getData(true);
+        $print = route('admin.reports.currency-exchange-report.print', array_filter($filters));
 
-        return view('admin.reports.currency-exchange-report', compact('currencies'));
+        return page('admin.reports.currency-exchange-report', compact('currencies', 'filters', 'data', 'print'), ['list']);
     }
 
     public function currencyExchangeReportData(Request $request)

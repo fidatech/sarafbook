@@ -64,3 +64,6 @@ badge-soft primary info success warning secondary is-gray is-debit is-credit is-
 # icons chosen in arrays (ico($icon))
 #s-user-tie #s-building-columns #s-user #s-vault #s-arrow-right-arrow-left #s-crown #s-user-shield #s-user-slash #s-user-check
 #s-arrow-up-right-from-square #s-download #s-hourglass-half #s-circle-check #s-hand-holding-dollar #s-paper-plane
+#s-scale-balanced #s-calculator #s-file-excel #s-file-lines #s-chart-line #s-money-bill-trend-up #s-users
+#s-layer-group
+#s-money-bill-wave #s-file-pdf
