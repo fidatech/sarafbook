@@ -26,7 +26,7 @@ async function shot(name, { width = 1440, height = 1000, theme = 'light', lang =
     await page.evaluate(t => { try { localStorage.setItem('erp.ui', JSON.stringify({ theme: t })); } catch (e) {} document.documentElement.setAttribute('data-bs-theme', t); }, theme);
     if (before) await before(page);
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${out}/${name}.png`, fullPage: full });
+    await page.screenshot({ path: `${out}/${name}.jpg`, fullPage: full, type: 'jpeg', quality: 62 });
     console.log('saved', name);
 }
 
