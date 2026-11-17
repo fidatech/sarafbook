@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 class TenantsSmoke extends Command
 {
     protected $signature = 'tenants:smoke {tenant : Short name} {paths?* : Paths to open; default the pages of the menu}
+        {--dump : Print the HTML of every page, gzipped and base64, for a size check elsewhere}
         {--balances : Compare the stored balance of every account with the sum of its transactions}
         {--form=* : "METHOD path field=value&field=value" sent after the pages, inside one database transaction that is rolled back}';
 
@@ -57,6 +58,8 @@ class TenantsSmoke extends Command
             Auth::guard('web')->setUser($user);
 
             $request = Request::create($tenant->url($path), 'GET');
+            \Illuminate\Support\Facades\DB::connection()->flushQueryLog();
+            \Illuminate\Support\Facades\DB::connection()->enableQueryLog();
             $started = microtime(true);
             $response = $kernel->handle($request);
             $ms = (int) round((microtime(true) - $started) * 1000);
@@ -74,8 +77,17 @@ class TenantsSmoke extends Command
             } elseif ($status >= 300) {
                 $note = '-> '.str_replace($tenant->url(), '', (string) $response->headers->get('Location'));
             } else {
-                $note = round(strlen((string) $response->getContent()) / 1024).' KB';
+                $html = (string) $response->getContent();
+                $queries = \Illuminate\Support\Facades\DB::connection()->getQueryLog();
+                $note = round(strlen($html) / 1024).' KB, '.round(strlen(gzencode($html, 6)) / 1024, 1).' KB gzipped, '
+                    .count($queries).' queries in '.round(array_sum(array_column($queries, 'time'))).' ms';
+                if ($this->option('dump')) {
+                    foreach (str_split(base64_encode(gzencode($html, 9)), 380) as $chunk) {
+                        $this->line('HTML '.trim($path, '/').' '.$chunk);
+                    }
+                }
             }
+            \Illuminate\Support\Facades\DB::connection()->disableQueryLog();
             $this->line(sprintf('%s  %5d ms  /%s  %s', $status, $ms, $path, $note));
             $kernel->terminate($request, $response);
         }

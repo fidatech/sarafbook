@@ -18,6 +18,10 @@ on:
         description: Compare stored balances with the transactions
         type: boolean
         default: false
+      dump:
+        description: Print the HTML of the pages (gzipped, base64) for a size check
+        type: boolean
+        default: false
       forms:
         description: 'Forms to send and undo, separated by ";" e.g. POST admin/accounts name=Test&create_account_sub_category_id=1'
 
@@ -39,6 +43,7 @@ jobs:
       SMOKE_PATHS: ${{ inputs.paths }}
       SMOKE_FORMS: ${{ inputs.forms }}
       SMOKE_BALANCES: ${{ inputs.balances && '1' || '' }}
+      SMOKE_DUMP: ${{ inputs.dump && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up SSH
@@ -49,6 +54,6 @@ jobs:
         run: |
           set -Eeuo pipefail
           {
-            for name in CHECK_URL ERRORS SMOKE_TENANT SMOKE_PATHS SMOKE_FORMS SMOKE_BALANCES; do printf 'export %s=%q\n' "$name" "${!name}"; done
+            for name in CHECK_URL ERRORS SMOKE_TENANT SMOKE_PATHS SMOKE_FORMS SMOKE_BALANCES SMOKE_DUMP; do printf 'export %s=%q\n' "$name" "${!name}"; done
             cat scripts/deploy/cpanel-diagnose.sh
           } | ssh production 'bash -s'
