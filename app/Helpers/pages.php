@@ -35,6 +35,11 @@ if (! function_exists('done')) {
             return response()->json(['success' => $ok, 'message' => $message], $ok ? 200 : ($status === 200 ? 422 : $status));
         }
         $redirect = $to ? redirect($to) : back();
+        if (! $ok) {
+            // a refused save comes back with what was typed, and the message beside the form
+            $redirect = $redirect->withInput(request()->except(['password', 'repeat_password', 'new_password', 'new_password_confirmation', '_token']))
+                ->withErrors(['form' => $message]);
+        }
 
         return $redirect->with($ok ? 'success' : 'error', $message);
     }

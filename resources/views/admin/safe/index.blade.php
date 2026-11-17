@@ -56,8 +56,8 @@
                             <div class="text-muted small mb-3">{{ __('In the safe at the end') }}</div>
                             <dl class="safe-flow">
                                 <div><dt>{{ __('At the start') }}</dt><dd dir="ltr">{{ $card['opening'] < 0 ? '−' : '' }}{{ $amountText(abs($card['opening'])) }}</dd></div>
-                                <div><dt>{{ __('Came in') }}</dt><dd dir="ltr" class="is-owing">+{{ $amountText($card['in']) }}</dd></div>
-                                <div><dt>{{ __('Went out') }}</dt><dd dir="ltr" class="is-owed">−{{ $amountText($card['out']) }}</dd></div>
+                                <div><dt>{{ __('Came in') }}</dt><dd dir="ltr" @class(['is-owing' => $card['in'] > 0])>{{ $card['in'] > 0 ? '+' : '' }}{{ $amountText($card['in']) }}</dd></div>
+                                <div><dt>{{ __('Went out') }}</dt><dd dir="ltr" @class(['is-owed' => $card['out'] > 0])>{{ $card['out'] > 0 ? '−' : '' }}{{ $amountText($card['out']) }}</dd></div>
                             </dl>
                         </div>
                     </section>

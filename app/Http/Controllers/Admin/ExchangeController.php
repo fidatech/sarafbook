@@ -18,21 +18,71 @@ class ExchangeController extends Controller
 {
     use FormatsExchangeNotes;
 
-    public function index()
+    /**
+     * The exchanges in the fida-sarafi style: filtered and paged on the server, with the count,
+     * the volume in US dollars and the profit by currency of what is shown.
+     */
+    public function index(Request $request)
     {
-        return view('admin.exchanges.index');
+        $currencies = Currency::orderBy('id')->get();
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'type' => in_array($request->query('type'), ['sell', 'purchase'], true) ? $request->query('type') : '',
+            'mode' => in_array($request->query('mode'), ['cash', 'account'], true) ? $request->query('mode') : '',
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('from')) ? $request->query('from') : '',
+            'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('to')) ? $request->query('to') : '',
+        ];
+        $filtered = collect($filters)->filter(fn ($v) => $v !== '' && $v !== null)->isNotEmpty();
+        $base = fn () => Exchange::query()
+            ->when($filters['type'] !== '', fn ($q) => $q->where('type', $filters['type']))
+            ->when($filters['mode'] === 'cash', fn ($q) => $q->where('mode', 'cash'))
+            ->when($filters['mode'] === 'account', fn ($q) => $q->where('mode', '!=', 'cash'))
+            ->when($filters['currency_id'], fn ($q, $v) => $q->where(fn ($w) => $w->where('from_currency_id', $v)->orWhere('to_currency_id', $v)))
+            ->when($filters['from'] !== '', fn ($q) => $q->where('date', '>=', $filters['from']))
+            ->when($filters['to'] !== '', fn ($q) => $q->where('date', '<=', $filters['to']))
+            ->when($filters['q'] !== '', function ($q) use ($filters) {
+                $term = '%'.$filters['q'].'%';
+                $q->where(fn ($w) => $w->where('note', 'like', $term)
+                    ->orWhereIn('account_id', Account::query()->where('name', 'like', $term)->orWhere('code', 'like', $term)->select('id')));
+            });
+
+        $rows = $base()->with(['account:id,name,code', 'fromCurrency:id,code', 'toCurrency:id,code', 'profitCurrency:id,code'])
+            ->orderByDesc('date')->orderByDesc('id')->paginate(25)->withQueryString();
+
+        // without filters the totals are of today, so the page stays fast with years of exchanges
+        $sumQuery = $filtered ? $base() : $base()->where('date', '>=', now()->toDateString());
+        $summary = (clone $sumQuery)->selectRaw('COUNT(*) AS n, COALESCE(SUM(usd_amount), 0) AS usd')->first();
+        $profits = (clone $sumQuery)->whereNotNull('profit_currency_id')->groupBy('profit_currency_id')
+            ->selectRaw('profit_currency_id, SUM(profit) AS total')->pluck('total', 'profit_currency_id');
+
+        return page('admin.exchanges.index', compact('rows', 'currencies', 'filters', 'filtered', 'summary', 'profits'), ['list', 'totals']);
     }
+
     // =========================
     // CREATE PAGE
     // =========================
     public function create()
     {
-        return view('admin.exchanges.create', [
-            'customers'   => Account::where('account_sub_category_id', 1)->get(),
-            'sarafan'   => Account::where('account_sub_category_id', 2)->get(),
-            'currencies'  => Currency::orderBy('id')->get(),
-            'cashAccount' => Account::where('account_sub_category_id', 3)->first()
-        ]);
+        return view('admin.exchanges.create', $this->formData());
+    }
+
+    private function formData(?Exchange $exchange = null): array
+    {
+        $trackId = null;
+        if ($exchange && in_array($exchange->mode, ['track'], true)) {
+            $skip = array_filter([$exchange->account_id, Account::where('account_sub_category_id', 3)->value('id'), Account::where('account_sub_category_id', 4)->value('id')]);
+            $trackId = Transaction::where('linked_id', $exchange->linked_id)->whereNotIn('account_id', $skip)->value('account_id');
+        }
+
+        return [
+            'exchange' => $exchange,
+            'trackId' => $trackId,
+            'accounts' => Account::whereIn('account_sub_category_id', [1, 2])->where('is_active', true)->orderBy('code')->get(['id', 'name', 'code', 'account_sub_category_id']),
+            'currencies' => Currency::where('is_active', true)->orderByRaw("CASE WHEN code = 'USD' THEN 0 ELSE 1 END")->orderBy('id')->get(),
+            'cashAccount' => Account::where('account_sub_category_id', 3)->first(),
+            'usdId' => Currency::where('code', 'USD')->value('id'),
+        ];
     }
 
     public function data(Request $request)
@@ -118,21 +168,22 @@ class ExchangeController extends Controller
             ->make(true);
     }
 
-    public function show(Exchange $exchange)
+    public function show(Request $request, Exchange $exchange)
     {
-        $exchange->load(['fromCurrency', 'toCurrency', 'account']);
-        return response()->json($exchange);
+        $exchange->load(['fromCurrency', 'toCurrency', 'account', 'profitCurrency']);
+        if ($request->expectsJson()) {
+            return response()->json($exchange);
+        }
+        $lines = Transaction::query()->with(['account:id,name,code', 'currency:id,code'])
+            ->where('linked_id', $exchange->linked_id)->orderBy('id')->get();
+        $creator = \App\Models\User::find($exchange->created_by);
+
+        return view('admin.exchanges.show', compact('exchange', 'lines', 'creator'));
     }
 
     public function edit(Exchange $exchange)
     {
-        return view('admin.exchanges.create', [
-            'exchange'    => $exchange,
-            'customers'   => Account::where('account_sub_category_id', 1)->get(),
-            'sarafan'     => Account::where('account_sub_category_id', 2)->get(),
-            'currencies'  => Currency::orderBy('id')->get(),
-            'cashAccount' => Account::where('account_sub_category_id', 3)->first()
-        ]);
+        return view('admin.exchanges.create', $this->formData($exchange));
     }
 
     // public function update(Request $request, Exchange $exchange)
@@ -280,10 +331,11 @@ class ExchangeController extends Controller
                 'deleted'
             );
 
-            return response()->json(['success' => true, 'message' => __('exchanges.deleted')]);
+            return done(__('exchanges.deleted'), url()->previous() === route('admin.exchanges.show', $exchange->id) ? route('admin.exchanges.index') : null);
         } catch (\Exception $e) {
+            report($e);
 
-            return response()->json(['success' => false, 'message' => __('exchanges.delete_error')], 500);
+            return done(__('exchanges.delete_error'), null, false, 500);
         }
     }
 
@@ -666,7 +718,7 @@ class ExchangeController extends Controller
         );
 
         if (!$rate) {
-            return response()->json(['message' => __('exchanges.rate_unavailable')], 422);
+            return done(__('exchanges.rate_unavailable'), null, false, 422);
         }
 
         $fromAmount = (float) $request->from_amount;
@@ -687,7 +739,7 @@ class ExchangeController extends Controller
         $cashId = Account::where('account_sub_category_id', 3)->value('id');
 
         if (!$cashId) {
-            return response()->json(['message' => __('exchanges.cash_unconfigured')], 500);
+            return done(__('exchanges.cash_unconfigured'), null, false, 500);
         }
 
         $accountId = $request->mode === 'cash'
@@ -737,6 +789,7 @@ class ExchangeController extends Controller
                 'from_amount' => $fromAmount,
                 'to_amount' => $toAmount,
                 'rate' => $rate,
+                'operation_type' => ($request->operation_type === 'divide') ? 'divide' : 'multiply',
                 'base_rate' => $baseRate,
                 'usd_amount' => $usdAmount,
                 'profit' => $profit,
@@ -809,7 +862,7 @@ class ExchangeController extends Controller
             );
         });
 
-        return response()->json(['message' => __('exchanges.processed')]);
+        return done(__('exchanges.processed'), $request->boolean('again') ? route('admin.exchanges.create') : route('admin.exchanges.index'));
     }
 
     public function update(Request $request, Exchange $exchange)
@@ -837,7 +890,7 @@ class ExchangeController extends Controller
     );
 
     if (!$rate) {
-        return response()->json(['message' => __('exchanges.rate_unavailable')], 422);
+        return done(__('exchanges.rate_unavailable'), null, false, 422);
     }
 
     $fromAmount = (float) $request->from_amount;
@@ -858,7 +911,7 @@ class ExchangeController extends Controller
     $cashId = Account::where('account_sub_category_id', 3)->value('id');
 
     if (!$cashId) {
-        return response()->json(['message' => __('exchanges.cash_unconfigured')], 500);
+        return done(__('exchanges.cash_unconfigured'), null, false, 500);
     }
 
     $accountId = $request->mode === 'cash'
@@ -909,6 +962,7 @@ class ExchangeController extends Controller
             'from_amount' => $fromAmount,
             'to_amount' => $toAmount,
             'rate' => $rate,
+            'operation_type' => ($request->operation_type === 'divide') ? 'divide' : 'multiply',
             'base_rate' => $baseRate,
             'usd_amount' => $usdAmount,
             'profit' => $profit,
@@ -980,9 +1034,7 @@ class ExchangeController extends Controller
         );
     });
 
-    return response()->json([
-        'message' => __('exchanges.updated'),
-    ]);
+    return done(__('exchanges.updated'), route('admin.exchanges.show', $exchange->id));
 }
 
 private function resolveExchangePostingMode(Request $request, int $accountId, int $cashId): string
@@ -1422,6 +1474,7 @@ private function postExchangeTransactions(
                 'from_amount' => $fromAmount,
                 'to_amount' => $toAmount,
                 'rate' => $rate,
+                'operation_type' => ($request->operation_type === 'divide') ? 'divide' : 'multiply',
                 'base_rate' => $baseRate,
                 'usd_amount' => $usdAmount,
                 'profit' => $profit,
@@ -1574,6 +1627,7 @@ private function postExchangeTransactions(
                 'from_amount' => $fromAmount,
                 'to_amount' => $toAmount,
                 'rate' => $rate,
+                'operation_type' => ($request->operation_type === 'divide') ? 'divide' : 'multiply',
                 'base_rate' => $baseRate,
                 'usd_amount' => $usdAmount,
                 'profit' => $profit,

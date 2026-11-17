@@ -436,11 +436,11 @@ class RemittanceController extends Controller
 
         // Business validation
         if ($request->type === 'incoming' && !$request->from_account_id) {
-            return response()->json(['message' => __('remittances.from_required')], 422);
+            return done(__('remittances.from_required'), null, false, 422);
         }
 
         if ($request->type === 'outgoing' && !$request->to_account_id) {
-            return response()->json(['message' => __('remittances.to_required')], 422);
+            return done(__('remittances.to_required'), null, false, 422);
         }
 
         // Main selected account for account statement page
@@ -467,14 +467,12 @@ class RemittanceController extends Controller
 
         // Track hawala number is required for outgoing remittance
         if ($request->type === 'outgoing' && $isSubCategoryOne && !$request->track_account_id) {
-            return response()->json([
-                'message' => __('remittances.track_required')
-            ], 422);
+            return done(__('remittances.track_required'), null, false, 422);
         }
 
         // Partner currency/amount needed when saraf side is different
         if (!$request->partner_currency_id || !$request->partner_amount) {
-            return response()->json(['message' => __('remittances.partner_required')], 422);
+            return done(__('remittances.partner_required'), null, false, 422);
         }
 
         $commissionMode = $request->commission_mode;
@@ -491,14 +489,14 @@ class RemittanceController extends Controller
         }
 
         if ($commissionMode === 'split' && ($kabulCommission <= 0 || $partnerCommission <= 0)) {
-            return response()->json(['message' => __('remittances.split_required')], 422);
+            return done(__('remittances.split_required'), null, false, 422);
         }
 
         if ($commissionMode === 'pay') {
             $kabulCommission = 0;
 
             if ($partnerCommission <= 0) {
-                return response()->json(['message' => __('remittances.pay_required')], 422);
+                return done(__('remittances.pay_required'), null, false, 422);
             }
         }
 
@@ -589,11 +587,10 @@ class RemittanceController extends Controller
             $this->postTransactionsForRemittance($r, $cashId, $page, $linkedId);
         });
 
-        if ($request->type === 'outgoing') {
-            return response()->json(['message' => __('ui.outgoing_remittance_stored')]);
-        }
-
-        return response()->json(['message' => __('ui.incoming_remittance_stored')]);
+        return done(
+            $request->type === 'outgoing' ? __('ui.outgoing_remittance_stored') : __('ui.incoming_remittance_stored'),
+            $request->boolean('again') ? route('admin.remittances.createNew') : route($request->type === 'outgoing' ? 'admin.remittances.outgoing' : ($request->remittance_mode === 'no_track' ? 'admin.remittances.pendingIncoming' : 'admin.remittances.incomingPaid'))
+        );
     }
 
     public function payment(Remittance $remittance)
@@ -721,7 +718,7 @@ class RemittanceController extends Controller
             );
         });
 
-        return response()->json(['message' => __('remittances.rejected')]);
+        return done(__('remittances.rejected'));
     }
 
     public function destroy(Remittance $remittance)
@@ -750,7 +747,7 @@ class RemittanceController extends Controller
             $remittance->delete();
         });
 
-        return response()->json(['message' => __('ui.blade_deleted')]);
+        return done(__('ui.blade_deleted'));
     }
 
     public function print(Remittance $remittance)
@@ -1542,36 +1539,73 @@ class RemittanceController extends Controller
     public function createNew()
     {
         return view('admin.remittances.create', [
-            'sarafs' => Account::where('account_sub_category_id', 2)->orderBy('name')->get(),
-            'accounts' => Account::orderBy('name')->get(),
-            'currencies' => Currency::orderBy('id')->get(),
+            'sarafs' => Account::where('account_sub_category_id', 2)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'account_sub_category_id']),
+            'accounts' => Account::where('is_active', true)->whereNotIn('account_sub_category_id', [3, 4, 5])->orderBy('code')->get(['id', 'name', 'code', 'account_sub_category_id']),
+            'currencies' => Currency::where('is_active', true)->orderBy('id')->get(),
         ]);
     }
 
-    private function listPage(string $title, ?string $type = null, ?string $status = null)
+    /**
+     * The three remittance lists in the fida-sarafi style: one page, filtered and paged on the
+     * server, with the totals by currency of what is shown.
+     */
+    private function listPage(Request $request, string $title, string $kind, ?string $type = null, ?string $status = null)
     {
-        return view('admin.remittances.list', [
-            'pageTitle' => $title,
-            'presetType' => $type,
-            'presetStatus' => $status,
-            'sarafs' => Account::where('account_sub_category_id', 2)->orderBy('name')->get(),
-            'currencies' => Currency::orderBy('id')->get(),
-        ]);
+        $currencies = Currency::orderBy('id')->get();
+        $partnerSide = $type === 'incoming' && $status === 'pending';
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'account_id' => $request->integer('account_id') ?: null,
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'status' => $type === 'outgoing' && in_array($request->query('status'), ['paid', 'pending', 'rejected'], true) ? $request->query('status') : '',
+            'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('from')) ? $request->query('from') : '',
+            'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('to')) ? $request->query('to') : '',
+        ];
+        $filtered = collect($filters)->filter(fn ($v) => $v !== '' && $v !== null)->isNotEmpty();
+        $base = fn () => Remittance::query()
+            ->when($type, fn ($q) => $q->where('type', $type))
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($filters['status'] !== '', fn ($q) => $q->where('status', $filters['status']))
+            ->when($filters['currency_id'], fn ($q, $v) => $q->where($partnerSide ? 'partner_currency_id' : 'currency_id', $v))
+            ->when($filters['account_id'], fn ($q, $v) => $q->where(fn ($w) => $w->where('from_account_id', $v)->orWhere('to_account_id', $v)->orWhere('track_account_id', $v)))
+            ->when($filters['from'] !== '', fn ($q) => $q->where('date', '>=', $filters['from']))
+            ->when($filters['to'] !== '', fn ($q) => $q->where('date', '<=', $filters['to']))
+            ->when($filters['q'] !== '', function ($q) use ($filters) {
+                $term = '%'.$filters['q'].'%';
+                $q->where(fn ($w) => $w->where('sender', 'like', $term)->orWhere('receiver', 'like', $term)
+                    ->orWhere('hawala_number', 'like', $term)->orWhere('track_hawala_number', 'like', $term)
+                    ->orWhereIn('from_account_id', Account::query()->where('name', 'like', $term)->select('id'))
+                    ->orWhereIn('to_account_id', Account::query()->where('name', 'like', $term)->select('id')));
+            });
+
+        $rows = $base()->with(['fromAccount:id,name,code', 'toAccount:id,name,code', 'trackAccount:id,name,code', 'currency:id,code', 'partnerCurrency:id,code', 'commissionCurrency:id,code'])
+            ->orderByDesc('date')->orderByDesc('id')->paginate(25)->withQueryString();
+        $amountColumn = $partnerSide ? 'partner_amount' : 'amount';
+        $currencyColumn = $partnerSide ? 'partner_currency_id' : 'currency_id';
+        $totals = $base()->whereNotNull($currencyColumn)->groupBy($currencyColumn)
+            ->selectRaw("{$currencyColumn} AS cid, SUM({$amountColumn}) AS total, COUNT(*) AS n")->get();
+
+        return page('admin.remittances.list', [
+            'pageTitle' => $title, 'kind' => $kind, 'presetType' => $type, 'presetStatus' => $status, 'partnerSide' => $partnerSide,
+            'rows' => $rows, 'totals' => $totals, 'filters' => $filters, 'filtered' => $filtered,
+            'sarafs' => Account::where('account_sub_category_id', 2)->orderBy('name')->get(['id', 'name', 'code']),
+            'currencies' => $currencies,
+        ], ['list', 'totals']);
     }
 
-    public function outgoing()
+    public function outgoing(Request $request)
     {
-        return $this->listPage(__('ui.outgoing_remittances'), 'outgoing', null);
+        return $this->listPage($request, __('ui.outgoing_remittances'), 'outgoing', 'outgoing', null);
     }
 
-    public function incomingPaid()
+    public function incomingPaid(Request $request)
     {
-        return $this->listPage(__('ui.incoming_paid_remittances'), 'incoming', 'paid');
+        return $this->listPage($request, __('ui.incoming_paid_remittances'), 'incomingPaid', 'incoming', 'paid');
     }
 
-    public function pendingIncoming()
+    public function pendingIncoming(Request $request)
     {
-        return $this->listPage(__('ui.pending_incoming_remittances'), 'incoming', 'pending');
+        return $this->listPage($request, __('ui.pending_incoming_remittances'), 'pendingIncoming', 'incoming', 'pending');
     }
 
     public function accountReport($accountId)

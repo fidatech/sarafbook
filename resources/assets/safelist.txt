@@ -60,3 +60,7 @@ kpi-violet kpi-amber kpi-green kpi-blue is-loading is-negative
 avatar-soft-success avatar-soft-primary is-blue is-amber is-red is-teal
 #s-chart-simple #s-eye-slash #s-ellipsis-vertical
 badge-soft primary info success warning secondary is-gray is-debit is-credit is-zero
+
+# icons chosen in arrays (ico($icon))
+#s-user-tie #s-building-columns #s-user #s-vault #s-arrow-right-arrow-left #s-crown #s-user-shield #s-user-slash #s-user-check
+#s-arrow-up-right-from-square #s-download #s-hourglass-half #s-circle-check #s-hand-holding-dollar #s-paper-plane
