@@ -48,6 +48,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo(fn (Request $request) => $request->is('platform', 'platform/*') ? '/platform' : '/admin/dashboard');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // which page failed: method and path only, never the query or the form (logs can be shown in public CI output)
+        $exceptions->context(fn () => app()->runningInConsole() ? [] : [
+            'request' => request()->method().' '.request()->getHost().'/'.ltrim(request()->path(), '/'),
+            'early' => request()->prefetch() ? 'prefetch' : null,
+        ]);
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
