@@ -265,3 +265,6 @@ div.rh-service { cursor: default; }
     .table-cards.acc-table tr.acc-group { display: block; border-radius: 10px; margin-top: 8px; }
     .table-cards.acc-table tr.acc-group th { display: block; border-radius: 10px; }
 }
+/* the list while another filter, search or page is on its way */
+#accResults { transition: opacity .12s ease; }
+#accResults.is-loading { opacity: .55; pointer-events: none; }

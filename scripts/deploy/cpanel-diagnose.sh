@@ -25,7 +25,11 @@ if [ -n "${SMOKE_TENANT:-}" ]; then
     fi
     (cd "$APP" && "$PHP" artisan tenants:smoke "$SMOKE_TENANT" ${SMOKE_PATHS:-} "${forms[@]}" ${SMOKE_BALANCES:+--balances} ${SMOKE_DUMP:+--dump} --no-interaction 2>&1 | sed -E "s#$HOME/##g" | cut -c1-420) || true
 fi
-LOG=$(ls -t "$APP"/storage/logs/*.log 2>/dev/null | head -1)
+if [ -f "$APP/storage/logs/timing.log" ]; then
+    echo "== page timings in the users' browsers (newest ${TIMINGS:-60}, milliseconds)"
+    tail -"${TIMINGS:-60}" "$APP/storage/logs/timing.log"
+fi
+LOG=$(ls -t "$APP"/storage/logs/laravel*.log 2>/dev/null | head -1)
 [ -n "$LOG" ] || { echo "No log file yet."; exit 0; }
 echo "== newest errors"
 grep -nE '^\[[0-9]{4}-[0-9]{2}-[0-9]{2}' "$LOG" | tail -"${ERRORS:-3}" | while IFS=: read -r line rest; do

@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         then: function () {
+            // page timings from the users' browsers: no session, no cookies, a few lines a minute at most
+            Route::get('_timing', \App\Http\Controllers\TimingController::class)->middleware('throttle:30,1');
+
             // "/" and the public website (routes/site.php).
             Route::middleware(['web', 'set_locale'])->group(base_path('routes/site.php'));
 

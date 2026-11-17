@@ -18,6 +18,9 @@
     $filtered = $filters['q'] !== '' || $filters['type'] || $filters['currency'] || $filters['balance'];
     $shownType = $filters['type'] ? $subCategories->firstWhere('id', $filters['type']) : null;
     $modalOld = old('_modal');
+    // icons inside the rows are plain markup: a Blade component per icon costs time on long pages
+    $sprite = asset_v('icons.svg');
+    $ico = fn (string $name, string $class = '') => '<i class="fi'.($class ? ' '.$class : '').'"><svg aria-hidden="true" focusable="false"><use href="'.$sprite.'#s-'.$name.'"/></svg></i>';
 @endphp
 
 @section('content')
@@ -33,6 +36,8 @@
 
 {{-- totals of the accounts the filters show; the toggle above hides them, and the choice is remembered --}}
 <section class="card mb-3 acc-summary" id="accSummary" aria-labelledby="accSummaryTitle">
+@fragment('summary')
+<div id="accSummaryBody">
     <div class="card-header">
         <div>
             <h2 class="h5 card-title mb-0" id="accSummaryTitle">{{ __('Balances by currency') }}</h2>
@@ -77,6 +82,8 @@
             </ul>
         @endif
     </div>
+</div>
+@endfragment
 </section>
 <script>try{if(localStorage.getItem('sb.accounts.totals')==='0'){document.getElementById('accSummary').hidden=true;document.getElementById('summaryToggle').setAttribute('aria-expanded','false')}}catch(e){}</script>
 
@@ -119,12 +126,12 @@
             </div>
             <div class="col-auto">
                 <button class="btn btn-light-secondary" type="submit" title="{{ __('ui.search') }}" aria-label="{{ __('ui.search') }}"><x-icon name="magnifying-glass" /></button>
-                @if ($filtered)
-                    <a class="btn btn-light-secondary" href="{{ route('admin.accounts.index') }}" title="{{ __('Clear the filters') }}" aria-label="{{ __('Clear the filters') }}"><x-icon name="filter-circle-xmark" /></a>
-                @endif
+                <a class="btn btn-light-secondary" id="accClear" href="{{ route('admin.accounts.index') }}" title="{{ __('Clear the filters') }}" aria-label="{{ __('Clear the filters') }}" @if (! $filtered) hidden @endif><x-icon name="filter-circle-xmark" /></a>
             </div>
         </form>
 
+@fragment('results')
+<div id="accResults" aria-live="polite" data-filtered="{{ $filtered ? 1 : 0 }}">
         <p class="acc-legend small text-muted mb-3">
             <span><i class="acc-dot is-debit" aria-hidden="true"></i> <b class="acc-debit" dir="ltr">−</b> {{ __('They owe us') }}</span>
             <span><i class="acc-dot is-credit" aria-hidden="true"></i> {{ __('We owe them') }}</span>
@@ -159,6 +166,7 @@
                     </tr>
                 </thead>
                 <tbody>
+                    @php [$tView, $tEdit, $tMore] = [__('View'), __('Edit'), __('More')]; @endphp
                     @foreach ($accounts as $account)
                         @php
                             $sub = $account->subCategory;
@@ -176,7 +184,7 @@
                         @endphp
                         @if ($groupCash && $isCash && ! ($shownCashHeading ?? false))
                             @php $shownCashHeading = true; @endphp
-                            <tr class="acc-group"><th colspan="{{ 3 + $columns->count() }}" scope="rowgroup"><x-icon name="vault" class="me-1" /> {{ __('Cash accounts') }} <small>{{ __('safe, profit and loss, expenses') }}</small></th></tr>
+                            <tr class="acc-group"><th colspan="{{ 3 + $columns->count() }}" scope="rowgroup">{!! $ico('vault', 'me-1') !!} {{ __('Cash accounts') }} <small>{{ __('safe, profit and loss, expenses') }}</small></th></tr>
                         @endif
                         <tr @class(['is-cash' => $isCash])>
                             <td>
@@ -188,10 +196,10 @@
                                             <span dir="ltr">{{ $account->code }}</span>
                                             <span class="badge-soft {{ $tone }}">{{ $typeName($sub) }}</span>
                                             @if ($account->user)
-                                                <span class="acc-flag" title="{{ __('Has a login for the customer') }}"><x-icon name="user-check" /></span>
+                                                <span class="acc-flag" title="{{ __('Has a login for the customer') }}">{!! $ico('user-check') !!}</span>
                                             @endif
                                             @unless ($account->include_in_reports)
-                                                <span class="acc-flag is-muted" title="{{ __('Not in the reports') }}"><x-icon name="eye-slash" /></span>
+                                                <span class="acc-flag is-muted" title="{{ __('Not in the reports') }}">{!! $ico('eye-slash') !!}</span>
                                             @endunless
                                         </div>
                                     </div>
@@ -217,16 +225,16 @@
                             @endforeach
                             <td class="text-end text-nowrap no-print">
                                 <div class="act-group">
-                                    <x-act kind="view" :href="$url" />
+                                    <a class="btn-act is-blue" href="{{ $url }}" title="{{ $tView }}" aria-label="{{ $tView }}">{!! $ico('eye') !!}</a>
                                     @if ($canUpdate)
-                                        <x-act kind="edit" type="button" data-account-edit="{{ $editJson }}" />
+                                        <button type="button" class="btn-act is-amber" data-account-edit="{{ $editJson }}" title="{{ $tEdit }}" aria-label="{{ $tEdit }}">{!! $ico('pen') !!}</button>
                                     @endif
                                     @if (($canMessage && $hasPhone) || ($canDelete && ! $isCash))
                                         <div class="dropdown d-inline-block">
-                                            <button class="btn-act is-gray" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ __('More') }}" aria-label="{{ __('More') }}"><x-icon name="ellipsis-vertical" /></button>
+                                            <button class="btn-act is-gray" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ $tMore }}" aria-label="{{ $tMore }}">{!! $ico('ellipsis-vertical') !!}</button>
                                             <ul class="dropdown-menu dropdown-menu-end">
                                                 @if ($canMessage && $hasPhone)
-                                                    <li><button class="dropdown-item" type="button" data-whatsapp="{{ route('admin.accounts.send-whatsapp', $account->id) }}"><x-icon name="comment-dots" class="me-2 text-success" /> {{ __('Send the balance on WhatsApp') }}</button></li>
+                                                    <li><button class="dropdown-item" type="button" data-whatsapp="{{ route('admin.accounts.send-whatsapp', $account->id) }}">{!! $ico('comment-dots', 'me-2 text-success') !!} {{ __('Send the balance on WhatsApp') }}</button></li>
                                                 @endif
                                                 @if ($canDelete && ! $isCash)
                                                     <li><hr class="dropdown-divider"></li>
@@ -237,7 +245,7 @@
                                                               data-confirm-ok="{{ __('Delete') }}">
                                                             @csrf
                                                             @method('DELETE')
-                                                            <button class="dropdown-item text-danger" type="submit"><x-icon name="trash" class="me-2" /> {{ __('Delete') }}</button>
+                                                            <button class="dropdown-item text-danger" type="submit">{!! $ico('trash', 'me-2') !!} {{ __('Delete') }}</button>
                                                         </form>
                                                     </li>
                                                 @endif
@@ -253,6 +261,8 @@
             </div>
             {{ $accounts->links('partials.pagination') }}
         @endif
+</div>
+@endfragment
     </div>
 </div>
 
@@ -388,10 +398,97 @@ document.addEventListener('DOMContentLoaded', function () {
         try { localStorage.setItem('sb.accounts.totals', open ? '1' : '0'); } catch (e) {}
     });
 
-    // filters: a choice in a list applies at once
-    document.querySelectorAll('#accountFilters [data-autosubmit]').forEach(function (select) {
-        select.addEventListener('change', function () { select.form.requestSubmit(); });
-    });
+    // filters, search and pages: only the totals and the list are asked for and changed in place;
+    // the address follows, so a link, Back and a reload show the same list
+    (function () {
+        var filters = document.getElementById('accountFilters');
+        var results = document.getElementById('accResults');
+        var summaryBody = document.getElementById('accSummaryBody');
+        var clear = document.getElementById('accClear');
+        var progress = document.getElementById('navProgress');
+        if (!filters || !results || !summaryBody || !window.fetch || !window.DOMParser) return;
+        var cache = {}, current = null, typing = null;
+        var savedAt = function () { try { return JSON.parse(localStorage.getItem('sb.saved') || '0'); } catch (e) { return 0; } };
+        var urlOf = function () {
+            var params = new URLSearchParams(new FormData(filters));
+            Array.from(params.keys()).forEach(function (k) { if (!params.get(k)) params.delete(k); });
+            if (params.get('per_page') === '25') params.delete('per_page');
+            var q = params.toString();
+            return location.pathname + (q ? '?' + q : '');
+        };
+        var get = function (url) {
+            var hit = cache[url];
+            if (hit && hit.at > savedAt() && Date.now() - hit.at < 60000) return hit.p;
+            var p = fetch(url, { headers: { 'X-Fragment': 'accounts', 'Accept': 'text/html' }, credentials: 'same-origin' })
+                .then(function (r) { if (!r.ok || r.redirected) throw new Error(r.status); return r.text(); });
+            cache[url] = { at: Date.now(), p: p };
+            p.catch(function () { delete cache[url]; });
+            return p;
+        };
+        var show = function (url, push) {
+            var mine = current = url, started = performance.now();
+            results.classList.add('is-loading'); results.setAttribute('aria-busy', 'true');
+            if (progress) progress.classList.add('is-active');
+            get(url).then(function (html) {
+                if (mine !== current) return;
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var nextResults = doc.getElementById('accResults'), nextSummary = doc.getElementById('accSummaryBody');
+                if (!nextResults || !nextSummary) throw new Error('parts');
+                results.replaceWith(nextResults); results = nextResults;
+                summaryBody.replaceWith(nextSummary); summaryBody = nextSummary;
+                if (clear) clear.hidden = results.dataset.filtered !== '1';
+                if (push === 'push') history.pushState({ acc: 1 }, '', url);
+                else if (push === 'replace') history.replaceState({ acc: 1 }, '', url);
+                document.querySelectorAll('#accResults table.table').forEach(function (t) { if (ERP.cardify) ERP.cardify(t); });
+                if (ERP.timing) ERP.timing('list', performance.now() - started);
+            }).catch(function () {
+                if (mine === current) location.href = url; // anything odd: load the page the ordinary way
+            }).finally(function () {
+                if (mine !== current) return;
+                results.classList.remove('is-loading'); results.removeAttribute('aria-busy');
+                if (progress) progress.classList.remove('is-active');
+            });
+        };
+        var sync = function (url) {
+            var params = new URL(url, location.href).searchParams;
+            Array.from(filters.elements).forEach(function (el) {
+                if (!el.name) return;
+                el.value = params.get(el.name) || (el.name === 'per_page' ? '25' : '');
+            });
+        };
+        history.replaceState({ acc: 1 }, '', location.href);
+
+        filters.addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(typing); show(urlOf(), 'push'); });
+        filters.querySelectorAll('[data-autosubmit]').forEach(function (select) {
+            select.addEventListener('change', function () { show(urlOf(), 'push'); });
+        });
+        var search = filters.querySelector('input[name=q]');
+        if (search) search.addEventListener('input', function () {
+            clearTimeout(typing);
+            typing = setTimeout(function () { show(urlOf(), 'replace'); }, 280);
+        });
+        if (clear) clear.addEventListener('click', function (e) {
+            e.preventDefault(); filters.reset(); sync(clear.href); show(location.pathname, 'push');
+        });
+        // pages of the list: changed in place, and the page under the pointer is fetched ahead
+        document.addEventListener('click', function (e) {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+            var a = e.target.closest && e.target.closest('#accResults .pagination a[href]');
+            if (!a) return;
+            e.preventDefault();
+            show(a.pathname + a.search, 'push');
+            filters.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        });
+        document.addEventListener('pointerover', function (e) {
+            var a = e.target.closest && e.target.closest('#accResults .pagination a[href]');
+            if (a) get(a.pathname + a.search).catch(function () {});
+        });
+        window.addEventListener('popstate', function (e) {
+            if (!e.state || !e.state.acc) return;
+            sync(location.href);
+            show(location.pathname + location.search, null);
+        });
+    })();
 
     var form = document.getElementById('accountForm');
     if (form) {
@@ -467,9 +564,10 @@ document.addEventListener('DOMContentLoaded', function () {
             bootstrap.Modal.getOrCreateInstance(modalEl).show();
         };
         modalEl.addEventListener('shown.bs.modal', function () { document.getElementById('accountName').focus(); });
-        document.querySelectorAll('[data-account-new]').forEach(function (b) { b.addEventListener('click', function () { open(null); }); });
-        document.querySelectorAll('[data-account-edit]').forEach(function (b) {
-            b.addEventListener('click', function () { open(JSON.parse(b.dataset.accountEdit)); });
+        document.addEventListener('click', function (e) {
+            var b = e.target.closest && e.target.closest('[data-account-new], [data-account-edit]');
+            if (!b) return;
+            open(b.hasAttribute('data-account-edit') ? JSON.parse(b.dataset.accountEdit) : null);
         });
         form.addEventListener('submit', function (e) {
             syncCode();
@@ -490,8 +588,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // WhatsApp: the window is opened at once (so it is not blocked) and sent to the message when it is ready
-    document.querySelectorAll('[data-whatsapp]').forEach(function (button) {
-        button.addEventListener('click', function () {
+    document.addEventListener('click', function (e) {
+        var button = e.target.closest && e.target.closest('[data-whatsapp]');
+        if (!button) return;
+        (function () {
             var win = window.open('about:blank', '_blank');
             button.disabled = true;
             fetch(button.dataset.whatsapp, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
@@ -506,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (window.ERP && ERP.toast) ERP.toast(e.message || text.failed, 'danger');
                 })
                 .finally(function () { button.disabled = false; });
-        });
+        })();
     });
 });
 </script>

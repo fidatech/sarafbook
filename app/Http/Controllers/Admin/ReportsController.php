@@ -26,6 +26,9 @@ use Illuminate\Support\Str;
 
 class ReportsController extends Controller
 {
+    /** Rows a report table sends at most; its totals still count everything. */
+    private const ROW_LIMIT = 1000;
+
     private function fixFarsi($text)
     {
         if (empty($text)) return $text;
@@ -1938,7 +1941,7 @@ class ReportsController extends Controller
             ->orderByDesc('date')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->get();
+            ->lazy(1000);
 
         $rows = [];
 
@@ -2009,6 +2012,9 @@ class ReportsController extends Controller
             $summary['total_profit'] += (float) ($exchange->profit ?? 0);
             $summary['total_records']++;
 
+            if (count($rows) >= self::ROW_LIMIT) {
+                continue;
+            }
             $rows[] = [
                 'id' => $exchange->id,
                 'date_time' => optional($exchange->date)->format('Y-m-d') . ' ' . optional($exchange->created_at)->format('H:i'),
@@ -2031,6 +2037,7 @@ class ReportsController extends Controller
 
         return response()->json([
             'rows' => $rows,
+            'rows_limited' => $summary['total_records'] > count($rows),
             'summary' => $summary,
             'currency_pair_totals' => array_values($currencyPairTotals),
         ]);
@@ -2236,7 +2243,7 @@ class ReportsController extends Controller
             ->orderByDesc('date')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->get();
+            ->lazy(1000);
 
         $tabs = [];
 
@@ -2299,7 +2306,7 @@ class ReportsController extends Controller
             $tabs[$fromCurrencyId]['totals'][$pairKey]['rate_count']++;
             $tabs[$fromCurrencyId]['totals'][$pairKey]['records']++;
 
-            $tabs[$fromCurrencyId]['rows'][] = [
+            if (count($tabs[$fromCurrencyId]['rows']) < self::ROW_LIMIT) $tabs[$fromCurrencyId]['rows'][] = [
                 'date_time' => optional($exchange->date)->format('Y-m-d') . ' ' . optional($exchange->created_at)->format('H:i'),
                 'customer_name' => optional($exchange->account)->name ?? '-',
                 'customer_code' => optional($exchange->account)->code ?? '-',

@@ -443,6 +443,37 @@
     // a save in another tab of the same Sarafi
     window.addEventListener('storage', function (e) { if (e.key === 'sb.saved') { dropEarly(); clearTimeout(saved.t); saved.t = setTimeout(fetchEarly, 2500); } });
 
+    // ------------------------------------------- timing in the user's own browser
+    // A few numbers per page (and per list change) go to /_timing, so speed is measured where the
+    // users are, not only from the server: time to the first byte, to the first paint, to ready
+    // and to done, how the page came (early or not) and the connection. No query string, no data.
+    var sendTiming = function (v) {
+        try {
+            var c = navigator.connection || {};
+            v.p = location.pathname; v.rtt = c.rtt || 0; v.net = c.effectiveType || '';
+            var q = Object.keys(v).map(function (k) { return k + '=' + encodeURIComponent(v[k]); }).join('&');
+            nativeFetchForTiming('/_timing?' + q, { credentials: 'omit', keepalive: true, cache: 'no-store' }).catch(function () {});
+        } catch (e) {}
+    };
+    var nativeFetchForTiming = window.fetch ? window.fetch.bind(window) : function () { return Promise.reject(); };
+    ERP.timing = function (kind, ms) { sendTiming({ k: kind, ttfb: 0, fcp: Math.round(ms), dcl: Math.round(ms), load: Math.round(ms) }); };
+    shown(function () {
+        var report = function () {
+            var n = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+            if (!n) return;
+            var start = n.activationStart || 0;
+            var at = function (t) { return Math.max(0, Math.round(t - start)); };
+            var paint = (performance.getEntriesByName('first-contentful-paint') || [])[0];
+            sendTiming({
+                k: start > 0 ? 'drawn' : (n.type === 'back_forward' ? 'back' : (n.type === 'reload' ? 'reload' : 'open')),
+                d: n.deliveryType || (n.transferSize === 0 && n.decodedBodySize > 0 ? 'cache' : 'network'),
+                ttfb: at(n.responseStart), fcp: paint ? at(paint.startTime) : 0,
+                dcl: at(n.domContentLoadedEventEnd), load: at(n.loadEventEnd)
+            });
+        };
+        if (document.readyState === 'complete') setTimeout(report, 0); else window.addEventListener('load', function () { setTimeout(report, 0); }, { once: true });
+    });
+
     // Back and Forward show the page as it was left (instant); if something was saved since, it is loaded fresh
     window.addEventListener('pageshow', function (e) {
         if (progress) progress.classList.remove('is-active');

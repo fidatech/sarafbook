@@ -140,7 +140,7 @@ class AccountsController extends Controller
             ->havingRaw('SUM(ABS(ab.balance)) > 0')
             ->get();
 
-        return view('admin.accounts.index', [
+        $view = view('admin.accounts.index', [
             'accounts' => $accounts,
             'balances' => $balances,
             'columns' => $columns,
@@ -153,6 +153,16 @@ class AccountsController extends Controller
             'totals' => $totals,
             'filters' => ['q' => $search, 'type' => $type, 'currency' => $currencyId, 'balance' => $balance, 'per_page' => $perPage],
         ]);
+
+        // a filter, a search or another page asked from the list itself: only the totals and the
+        // list are sent, the page around them stays as it is in the browser
+        if ($request->header('X-Fragment') === 'accounts') {
+            return response($view->fragments(['summary', 'results']))
+                ->header('Vary', 'X-Fragment')
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        return response($view)->header('Vary', 'X-Fragment');
     }
 
     /** Accounts with money on both sides: a positive balance in one currency and a negative one in another. */

@@ -29,7 +29,7 @@ return [
     // Never fetched ahead: addresses that change something, download a file, open WhatsApp or sign
     // out. URL patterns as the browser's speculation rules read them ("*" is any text).
     'never' => [
-        '/logout', '/logout-ping', '/user/ping', '/lang/*', '/platform/lang/*', '/platform/logout',
+        '/logout', '/logout-ping', '/user/ping', '/_timing', '/lang/*', '/platform/lang/*', '/platform/logout',
         '/_platform/*', '/platform/tenants/*/enter',
         '/*recalculate*', '/*refresh*', '/*update-status*', '/*whatsapp*',
         '/*export*', '/*pdf*', '/*print*', '/*download*', '/*template*', '/*receipt*', '/*evidence*',

@@ -57,7 +57,12 @@ class TenantsSmoke extends Command
             $tenancy->initialize($tenant);
             Auth::guard('web')->setUser($user);
 
+            // "path::part" asks for only the parts a list sends when it changes in place
+            [$path, $part] = array_pad(explode('::', $path, 2), 2, null);
             $request = Request::create($tenant->url($path), 'GET');
+            if ($part) {
+                $request->headers->set('X-Fragment', $part);
+            }
             \Illuminate\Support\Facades\DB::connection()->flushQueryLog();
             \Illuminate\Support\Facades\DB::connection()->enableQueryLog();
             $started = microtime(true);
