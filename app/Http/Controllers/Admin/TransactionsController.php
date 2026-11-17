@@ -380,7 +380,7 @@ class TransactionsController extends Controller
             }
         });
 
-        return done(__('transactions.saved_transactions'), route('admin.transactions.index'));
+        return done(__('transactions.saved_transactions'), back_to(route('admin.transactions.index')));
     }
 
     public function update(Request $request, $linkedId)
@@ -537,7 +537,7 @@ class TransactionsController extends Controller
             }
         });
 
-        return done(__('transactions.updated_transaction'), route('admin.transactions.index'));
+        return done(__('transactions.updated_transaction'), back_to(route('admin.transactions.index')));
     }
 
     public function destroy($id)

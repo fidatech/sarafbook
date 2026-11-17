@@ -67,3 +67,4 @@ badge-soft primary info success warning secondary is-gray is-debit is-credit is-
 #s-scale-balanced #s-calculator #s-file-excel #s-file-lines #s-chart-line #s-money-bill-trend-up #s-users
 #s-layer-group
 #s-money-bill-wave #s-file-pdf
+#s-book-open #s-right-left

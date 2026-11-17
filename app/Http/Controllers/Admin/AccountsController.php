@@ -797,40 +797,78 @@ class AccountsController extends Controller
         return redirect()->back()->with('success', __('accounts.created_successfully'));
     }
 
-    public function show($id)
+    /**
+     * The account statement in the fida-sarafi style: the account, its balance in each currency,
+     * and its lines newest first with the balance after each line (per currency, by the database),
+     * filtered and paged on the server. Colour marks and the OK tick as in the journal.
+     */
+    public function show(Request $request, $id)
     {
-        $account    = Account::with('subCategory')->findOrFail($id);
-        $accounts   = Account::whereNot('id', $id)->get();
-        $sarafs     = Account::where('account_sub_category_id', 2)->orderBy('name')->get();
-        $currencies = Currency::where('is_active', 1)->get();
-        $setting    = Setting::first();
+        $account = Account::with('subCategory', 'user:id,username')->findOrFail($id);
+        $currencies = Currency::orderBy('id')->get();
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'currency_id' => $request->integer('currency_id') ?: null,
+            'type' => in_array($request->query('type'), ['credit', 'debit'], true) ? $request->query('type') : '',
+            'color' => preg_match('/^(none|#[0-9A-Fa-f]{6})$/', (string) $request->query('color')) ? (string) $request->query('color') : '',
+            'is_ok' => in_array((string) $request->query('is_ok'), ['0', '1'], true) ? (string) $request->query('is_ok') : '',
+            'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('from')) ? $request->query('from') : '',
+            'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('to')) ? $request->query('to') : '',
+        ];
+        $filtered = collect($filters)->filter(fn ($v) => $v !== '' && $v !== null)->isNotEmpty();
 
-        $summariesByCurrency = DB::table('transactions')
-            ->join('currencies', 'transactions.payment_currency_id', '=', 'currencies.id')
-            ->select(
-                'currencies.code as currency',
-                DB::raw("SUM(CASE WHEN transaction_type = 'credit' THEN payment_amount ELSE 0 END) as credit"),
-                DB::raw("SUM(CASE WHEN transaction_type = 'debit' THEN payment_amount ELSE 0 END) as debit")
-            )
-            ->where('account_id', $account->id)
-            ->whereNotNull('transactions.payment_currency_id')
-            ->groupBy('currencies.code')
-            ->get()
-            ->mapWithKeys(function ($item) {
-                return [$item->currency => [
-                    'credit' => (float) $item->credit,
-                    'debit'  => (float) $item->debit,
-                ]];
+        // the balance after each line is counted over all the account's lines in that currency,
+        // so a filter shows the true balance at that moment
+        $running = Transaction::query()->where('account_id', $account->id)->where('status', 'active')
+            ->select('id')->selectRaw("SUM(CASE WHEN transaction_type = 'credit' THEN COALESCE(payment_amount, amount) ELSE -COALESCE(payment_amount, amount) END)
+                OVER (PARTITION BY COALESCE(payment_currency_id, currency_id) ORDER BY created_at ASC, id ASC) AS after_balance");
+
+        $rows = Transaction::query()->with(['currency:id,code', 'paymentCurrency:id,code', 'actualCurrency:id,code'])
+            ->leftJoinSub($running, 'rb', 'rb.id', '=', 'transactions.id')
+            ->select('transactions.*', 'rb.after_balance')
+            ->addSelect(['remittance_paid_at' => Remittance::query()->select('paid_at')->whereColumn('remittances.id', 'transactions.table_row_id')->whereRaw("LOWER(transactions.table_name) = 'remittances'")->limit(1)])
+            ->where('transactions.account_id', $account->id)
+            ->when($filters['currency_id'], fn ($q, $v) => $q->where('transactions.payment_currency_id', $v))
+            ->when($filters['type'] !== '', fn ($q) => $q->where('transactions.transaction_type', $filters['type']))
+            ->when($filters['color'] === 'none', fn ($q) => $q->whereNull('transactions.color'))
+            ->when($filters['color'] !== '' && $filters['color'] !== 'none', fn ($q) => $q->where('transactions.color', $filters['color']))
+            ->when($filters['is_ok'] !== '', fn ($q) => $q->where('transactions.is_ok', $filters['is_ok'] === '1'))
+            ->when($filters['from'] !== '', fn ($q) => $q->where('transactions.created_at', '>=', $filters['from'].' 00:00:00'))
+            ->when($filters['to'] !== '', fn ($q) => $q->where('transactions.created_at', '<=', $filters['to'].' 23:59:59'))
+            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w->where('transactions.note', 'like', '%'.$filters['q'].'%')->orWhere('transactions.reference', 'like', '%'.$filters['q'].'%')))
+            ->orderByDesc('transactions.created_at')->orderByDesc('transactions.id')
+            ->paginate(50)->withQueryString();
+
+        $balances = AccountBalance::query()->with('currency:id,code')->where('account_id', $account->id)
+            ->where(fn ($q) => $q->where('balance', '!=', 0)->orWhere('credit', '!=', 0))->orderBy('currency_id')->get();
+
+        // what the filters show, by currency
+        $period = null;
+        if ($filtered) {
+            $period = Transaction::query()->where('account_id', $account->id)
+                ->when($filters['currency_id'], fn ($q, $v) => $q->where('payment_currency_id', $v))
+                ->when($filters['type'] !== '', fn ($q) => $q->where('transaction_type', $filters['type']))
+                ->when($filters['from'] !== '', fn ($q) => $q->where('created_at', '>=', $filters['from'].' 00:00:00'))
+                ->when($filters['to'] !== '', fn ($q) => $q->where('created_at', '<=', $filters['to'].' 23:59:59'))
+                ->join('currencies as c', 'c.id', '=', DB::raw('COALESCE(transactions.payment_currency_id, transactions.currency_id)'))
+                ->groupBy('c.code')->selectRaw("c.code, SUM(CASE WHEN transaction_type = 'credit' THEN COALESCE(payment_amount, amount) ELSE 0 END) AS credit,
+                    SUM(CASE WHEN transaction_type = 'debit' THEN COALESCE(payment_amount, amount) ELSE 0 END) AS debit")->get();
+        }
+
+        // the WhatsApp message of each line, ready to open
+        $setting = Setting::first();
+        if (strlen(preg_replace('/\D/', '', (string) $account->contact)) >= 6) {
+            $rows->getCollection()->each(function ($row) use ($account, $setting) {
+                $row->wa_url = $this->whatsappUrl($this->buildTransactionMessage($row, $account, $setting), $account->contact);
             });
+        }
 
-        return view('admin.accounts.show', compact(
-            'account',
-            'currencies',
-            'summariesByCurrency',
-            'setting',
-            'accounts',
-            'sarafs'
-        ));
+        return page('admin.accounts.show', [
+            'account' => $account, 'currencies' => $currencies, 'rows' => $rows, 'balances' => $balances, 'period' => $period,
+            'filters' => $filters, 'filtered' => $filtered,
+            'colors' => ['#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#8e24aa'],
+            'setting' => $setting,
+        ], ['list']);
     }
 
     public function print(Account $account)

@@ -12,8 +12,9 @@
 @php
     $x = $exchange;
     $again = old('_form') === 'ex';
-    $acct = $x?->account_id ? $accounts->firstWhere('id', $x->account_id) : null;
-    $savedWho = ! $x ? 'customer' : ($x->mode === 'cash' ? 'cash' : ((int) ($acct?->account_sub_category_id) === 2 ? 'saraf' : 'customer'));
+    $presetAccount = $x?->account_id ?? (request()->integer('account_id') ?: null);
+    $acct = $presetAccount ? $accounts->firstWhere('id', $presetAccount) : null;
+    $savedWho = $x && $x->mode === 'cash' ? 'cash' : ($acct ? ((int) $acct->account_sub_category_id === 2 ? 'saraf' : 'customer') : 'customer');
     $savedHow = $x && in_array($x->mode, ['no_track', 'treasure', 'track'], true) ? $x->mode : 'no_track';
     $val = fn ($key, $default = null) => $again ? old($key, $default) : $default;
     $who = $val('mode', $savedWho);
@@ -31,6 +32,7 @@
     @csrf
     @if ($x) @method('PUT') @endif
     <input type="hidden" name="_form" value="ex">
+    @if (request('back'))<input type="hidden" name="back" value="{{ request('back') }}">@endif
     <div class="card-body">
         @if ($again && $errors->any())
             <div class="alert alert-danger py-2" role="alert"><ul class="mb-0 ps-3">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -56,7 +58,7 @@
                 <label class="form-label" for="exAccount">{{ __('ui.account') }} <span class="text-danger">*</span></label>
                 <select class="form-select" id="exAccount" name="account_id" data-search>
                     <option value="">{{ __('Type a name or code…') }}</option>
-                    @foreach ($accounts as $a)<option value="{{ $a->id }}" data-kind="{{ (int) $a->account_sub_category_id === 2 ? 'saraf' : 'customer' }}" @selected((string) $val('account_id', $x?->account_id) === (string) $a->id)>{{ $a->code }} · {{ $a->name }}</option>@endforeach
+                    @foreach ($accounts as $a)<option value="{{ $a->id }}" data-kind="{{ (int) $a->account_sub_category_id === 2 ? 'saraf' : 'customer' }}" @selected((string) $val('account_id', $presetAccount) === (string) $a->id)>{{ $a->code }} · {{ $a->name }}</option>@endforeach
                 </select>
                 <div class="tx-balances" id="exBalances" aria-live="polite"></div>
             </div>
@@ -115,7 +117,7 @@
         </div>
     </div>
     <div class="card-footer d-flex flex-wrap gap-2 justify-content-end">
-        <a class="btn btn-light-secondary me-auto" href="{{ $x ? route('admin.exchanges.show', $x->id) : route('admin.exchanges.index') }}">{{ __('Cancel') }}</a>
+        <a class="btn btn-light-secondary me-auto" href="{{ back_to($x ? route('admin.exchanges.show', $x->id) : route('admin.exchanges.index')) }}">{{ __('Cancel') }}</a>
         @unless ($x)<button type="submit" class="btn btn-outline-soft" name="again" value="1">{{ __('Save and add another') }}</button>@endunless
         <button type="submit" class="btn btn-primary px-4"><x-icon name="check" class="me-1" /> {{ $x ? __('Save the change') : __('Save') }}</button>
     </div>

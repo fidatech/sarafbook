@@ -13,11 +13,15 @@
     $again = old('_form') === 'rm';
     $val = fn ($key, $default = null) => $again ? old($key, $default) : $default;
     $type = $val('type', request('type') === 'incoming' ? 'incoming' : 'outgoing');
-    $mode = $val('remittance_mode', $type === 'incoming' ? 'no_track' : 'treasure');
+    // opened from an account: a Saraf is the other side, a customer is the second account
+    $preset = request()->integer('account_id') ?: null;
+    $presetSaraf = $preset && $sarafs->contains('id', $preset) ? $preset : null;
+    $presetTrack = $preset && ! $presetSaraf ? $preset : null;
+    $mode = $val('remittance_mode', $presetTrack ? 'track' : ($type === 'incoming' ? 'no_track' : 'treasure'));
     $commission = $val('commission_mode', 'none');
     $defaultCurrency = $currencies->firstWhere('is_default', true)?->id ?? $currencies->first()?->id;
     $currencyOptions = $currencies->pluck('code', 'id');
-    $sarafOption = fn ($s, $field) => '<option value="'.$s->id.'"'.((string) $val($field) === (string) $s->id ? ' selected' : '').'>'.e($s->code.' · '.$s->name).'</option>';
+    $sarafOption = fn ($s, $field) => '<option value="'.$s->id.'"'.((string) $val($field, $presetSaraf) === (string) $s->id ? ' selected' : '').'>'.e($s->code.' · '.$s->name).'</option>';
 @endphp
 
 @section('content')
@@ -31,6 +35,7 @@
     @csrf
     <input type="hidden" name="_form" value="rm">
     <input type="hidden" name="page" value="remittance">
+    @if (request('back'))<input type="hidden" name="back" value="{{ request('back') }}">@endif
     <div class="card-body">
         @if ($again && $errors->any())
             <div class="alert alert-danger py-2" role="alert"><ul class="mb-0 ps-3">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -81,7 +86,7 @@
                 <label class="form-label" for="rmTrack">{{ __('ui.track_account') }} <span class="text-danger">*</span></label>
                 <select class="form-select" id="rmTrack" name="track_account_id" data-search>
                     <option value="">{{ __('Type a name or code…') }}</option>
-                    @foreach ($accounts as $a)<option value="{{ $a->id }}" data-kind="{{ $a->account_sub_category_id }}" @selected((string) $val('track_account_id') === (string) $a->id)>{{ $a->code }} · {{ $a->name }}</option>@endforeach
+                    @foreach ($accounts as $a)<option value="{{ $a->id }}" data-kind="{{ $a->account_sub_category_id }}" @selected((string) $val('track_account_id', $presetTrack) === (string) $a->id)>{{ $a->code }} · {{ $a->name }}</option>@endforeach
                 </select>
             </div>
             <div class="col-12 col-md-3" data-mode="track" id="rmTrackNoBox">

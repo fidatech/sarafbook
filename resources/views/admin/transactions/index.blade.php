@@ -46,13 +46,14 @@
     @csrf
     @if ($isEdit) @method('PUT') @endif
     <input type="hidden" name="_form" value="tx">
+    @if (request('back'))<input type="hidden" name="back" value="{{ request('back') }}">@endif
     <div class="card-header d-flex flex-wrap align-items-center gap-2">
         <div class="me-auto">
             <h2 class="h5 card-title mb-0">{{ $isEdit ? __('Change the entry') : __('New transaction') }}</h2>
             @if ($isEdit)<span class="text-muted small">{{ __('Saved :date', ['date' => $editing['created_at']]) }}</span>@endif
         </div>
-        @if ($isEdit)
-            <a class="btn btn-sm btn-light-secondary" href="{{ route('admin.transactions.index') }}">{{ __('Cancel') }}</a>
+        @if ($isEdit || request('back'))
+            <a class="btn btn-sm btn-light-secondary" href="{{ request('back') ? back_to(route('admin.transactions.index')) : route('admin.transactions.index') }}">{{ __('Cancel') }}</a>
         @endif
     </div>
     <div class="card-body">
@@ -69,7 +70,7 @@
                 <label class="form-label" for="txAccount">{{ __('ui.account') }} <span class="text-danger">*</span></label>
                 <select class="form-select" id="txAccount" name="account_id" required data-search data-balances="{{ route('admin.transactions.account-balances') }}">
                     <option value="">{{ __('Type a name or code…') }}</option>
-                    @foreach ($accountOptions as [$id, $text])<option value="{{ $id }}" @selected((string) $val('account_id') === (string) $id)>{{ $text }}</option>@endforeach
+                    @foreach ($accountOptions as [$id, $text])<option value="{{ $id }}" @selected((string) $val('account_id', request('account_id')) === (string) $id)>{{ $text }}</option>@endforeach
                 </select>
                 <div class="tx-balances" id="txBalances" aria-live="polite"></div>
             </div>

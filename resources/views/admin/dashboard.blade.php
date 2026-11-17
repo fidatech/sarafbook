@@ -1,5 +1,6 @@
 @extends('layouts.admin.base')
 @section('title', __('dashboard.title'))
+@section('modern', '1')
 
 @section('content')
 <div class="db-page" id="dashboardPage">
@@ -130,7 +131,7 @@
     async function load(form) {
         var from = form.querySelector('[name=date_from]'), to = form.querySelector('[name=date_to]');
         if (form.preset.value === 'custom' && (!from.value || !to.value || from.value > to.value)) {
-            Swal.fire({ confirmButtonText: text.ok, icon: 'warning', title: text.invalid, text: text.select });
+            ERP.toast(text.invalid + ' — ' + text.select, 'warning');
             return;
         }
         busy(true);
@@ -143,7 +144,7 @@
             history.replaceState({}, '', url);
             renderCharts();
         } catch (error) {
-            Swal.fire({ confirmButtonText: text.ok, icon: 'error', title: text.failed, text: text.again });
+            ERP.toast(text.failed + ' — ' + text.again, 'danger');
         } finally {
             busy(false);
         }
@@ -171,10 +172,10 @@
                 var response = await fetch(@json(route('admin.dashboard.refresh-balances')), { method: 'POST', headers: { 'X-CSRF-TOKEN': @json(csrf_token()), 'Accept': 'application/json' } });
                 var result = await response.json();
                 if (!response.ok) throw new Error(result.message);
-                await Swal.fire({ icon: 'success', text: result.message, timer: 1500, showConfirmButton: false });
+                ERP.toast(result.message, 'success'); await new Promise(function (r) { setTimeout(r, 900); });
                 window.location.reload();
             } catch (error) {
-                Swal.fire({ confirmButtonText: text.ok, icon: 'error', text: error.message || text.refreshFailed });
+                ERP.toast(error.message || text.refreshFailed, 'danger');
                 button.disabled = false;
                 button.removeAttribute('aria-busy');
                 label.textContent = text.refresh;

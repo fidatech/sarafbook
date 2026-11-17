@@ -655,5 +655,13 @@
     "The newest exchanges": "تر ټولو نوې تبادلې",
     "Dirham balances of chosen accounts, and their value in dollars.": "د ټاکل شویو حسابونو د درهمو بیلانس او په ډالر یې ارزښت.",
     "Remove :name from this report?": ":name له دې راپوره لرې شي؟",
-    "Exchange losses": "د تبادلو تاوان"
+    "Exchange losses": "د تبادلو تاوان",
+    "Send the balance": "بیلانس ولېږئ",
+    "Customer login": "د پیرودونکي ننوتل",
+    "Transaction": "معامله",
+    "Balance now": "اوسنی بیلانس",
+    "−: they owe us · +: we owe them": "−: دوی پوروړي دي · +: موږ پوروړي یو",
+    "Settled": "تصفیه شوی",
+    "Note or reference…": "یادښت یا د سند شمېره…",
+    "Actual": "اصلي"
 }

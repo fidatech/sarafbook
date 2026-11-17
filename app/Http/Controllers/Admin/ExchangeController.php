@@ -862,7 +862,7 @@ class ExchangeController extends Controller
             );
         });
 
-        return done(__('exchanges.processed'), $request->boolean('again') ? route('admin.exchanges.create') : route('admin.exchanges.index'));
+        return done(__('exchanges.processed'), $request->boolean('again') ? route('admin.exchanges.create', array_filter(['back' => $request->input('back')])) : back_to(route('admin.exchanges.index')));
     }
 
     public function update(Request $request, Exchange $exchange)
@@ -1034,7 +1034,7 @@ class ExchangeController extends Controller
         );
     });
 
-    return done(__('exchanges.updated'), route('admin.exchanges.show', $exchange->id));
+    return done(__('exchanges.updated'), back_to(route('admin.exchanges.show', $exchange->id)));
 }
 
 private function resolveExchangePostingMode(Request $request, int $accountId, int $cashId): string

@@ -655,5 +655,13 @@
     "The newest exchanges": "جدیدترین تبادلات",
     "Dirham balances of chosen accounts, and their value in dollars.": "بیلانس درهم حساب‌های انتخاب‌شده و ارزش آن به دالر.",
     "Remove :name from this report?": ":name از این گزارش برداشته شود؟",
-    "Exchange losses": "ضرر تبادلات"
+    "Exchange losses": "ضرر تبادلات",
+    "Send the balance": "ارسال بیلانس",
+    "Customer login": "ورود مشتری",
+    "Transaction": "معامله",
+    "Balance now": "بیلانس فعلی",
+    "−: they owe us · +: we owe them": "−: آن‌ها بدهکارند · +: ما بدهکاریم",
+    "Settled": "تسویه شده",
+    "Note or reference…": "یادداشت یا شماره سند…",
+    "Actual": "واقعی"
 }

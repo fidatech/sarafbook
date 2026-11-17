@@ -594,7 +594,7 @@ class RemittanceController extends Controller
 
         return done(
             $request->type === 'outgoing' ? __('ui.outgoing_remittance_stored') : __('ui.incoming_remittance_stored'),
-            $request->boolean('again') ? route('admin.remittances.createNew') : route($request->type === 'outgoing' ? 'admin.remittances.outgoing' : ($request->remittance_mode === 'no_track' ? 'admin.remittances.pendingIncoming' : 'admin.remittances.incomingPaid'))
+            $request->boolean('again') ? route('admin.remittances.createNew', array_filter(['back' => $request->input('back')])) : back_to(route($request->type === 'outgoing' ? 'admin.remittances.outgoing' : ($request->remittance_mode === 'no_track' ? 'admin.remittances.pendingIncoming' : 'admin.remittances.incomingPaid')))
         );
     }
 

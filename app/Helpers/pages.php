@@ -75,3 +75,22 @@ if (! function_exists('upload_extension')) {
         return $ext;
     }
 }
+
+if (! function_exists('back_to')) {
+    /**
+     * Where to go after a save: the page the form was opened from (a "back" field with an
+     * address of this site, such as an account statement), or $default.
+     */
+    function back_to(string $default): string
+    {
+        $back = (string) request()->input('back', '');
+        if ($back !== '' && str_starts_with($back, '/') && ! str_starts_with($back, '//')) {
+            return url($back);
+        }
+        if ($back !== '' && parse_url($back, PHP_URL_HOST) === request()->getHost()) {
+            return $back;
+        }
+
+        return $default;
+    }
+}
