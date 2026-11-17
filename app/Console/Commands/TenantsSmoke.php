@@ -59,6 +59,7 @@ class TenantsSmoke extends Command
 
             // "path::part" asks for only the parts a list sends when it changes in place
             [$path, $part] = array_pad(explode('::', $path, 2), 2, null);
+            $path = strtr($path, $this->placeholders());
             $request = Request::create($tenant->url($path), 'GET');
             if ($part) {
                 $request->headers->set('X-Fragment', $part);
@@ -116,8 +117,7 @@ class TenantsSmoke extends Command
                     // {last} in a path is the id of the newest account, for example the one just added
                     $path = str_replace('{last}', (string) \App\Models\Account::query()->max('id'), $path);
                     // {customer}, {customer2} and {saraf}, {saraf2}: accounts of those types, in fields and paths
-                    $ids = fn ($sub) => \App\Models\Account::query()->where('account_sub_category_id', $sub)->orderBy('id')->limit(2)->pluck('id')->all();
-                    $map = ['{customer}' => $ids(1)[0] ?? 0, '{customer2}' => $ids(1)[1] ?? 0, '{saraf}' => $ids(2)[0] ?? 0, '{saraf2}' => $ids(2)[1] ?? 0, '{exchange}' => (int) \App\Models\Exchange::query()->max('id'), '{remittance}' => (int) \App\Models\Remittance::query()->where('status', 'pending')->max('id')];
+                    $map = $this->placeholders();
                     $path = strtr($path, $map);
                     array_walk_recursive($data, function (&$v) use ($map) { $v = is_string($v) ? strtr($v, $map) : $v; });
                     $tenancy->initialize($tenant);
@@ -173,5 +173,17 @@ class TenantsSmoke extends Command
         $this->line($failed ? "$failed page(s) failed." : 'Every page opened.');
 
         return $failed ? self::FAILURE : self::SUCCESS;
+    }
+
+    /** {customer}, {customer2}, {saraf}, {saraf2}, {exchange} and {remittance}: ids of this Sarafi for paths and fields. */
+    private function placeholders(): array
+    {
+        $ids = fn ($sub) => \App\Models\Account::query()->where('account_sub_category_id', $sub)->orderBy('id')->limit(2)->pluck('id')->all();
+
+        return [
+            '{customer}' => $ids(1)[0] ?? 0, '{customer2}' => $ids(1)[1] ?? 0, '{saraf}' => $ids(2)[0] ?? 0, '{saraf2}' => $ids(2)[1] ?? 0,
+            '{exchange}' => (int) \App\Models\Exchange::query()->max('id'),
+            '{remittance}' => (int) \App\Models\Remittance::query()->where('status', 'pending')->max('id'),
+        ];
     }
 }
