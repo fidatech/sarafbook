@@ -54,4 +54,6 @@ console.log('fetched again after the save:', JSON.stringify(await page.evaluate(
 const refused = await page.request.get(base + '/admin/users/1/update-status', { headers: { 'Sec-Purpose': 'prefetch' }, maxRedirects: 0 });
 const allowed = await page.request.get(base + '/admin/accounts', { headers: { 'Sec-Purpose': 'prefetch' }, maxRedirects: 0 });
 console.log(`early request for /admin/users/1/update-status: ${refused.status()} (expected 403); for /admin/accounts: ${allowed.status()} (expected 200)`);
+const raw = await page.request.post(base + '/user/ping', { maxRedirects: 0, failOnStatusCode: false });
+console.log(`server answer to a save, read outside the browser: ${raw.status()}, Clear-Site-Data: ${raw.headers()['clear-site-data'] ?? '(missing)'}`);
 await browser.close();
