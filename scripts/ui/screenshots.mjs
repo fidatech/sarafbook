@@ -38,9 +38,11 @@ await shot('phone-light-en', { width: 375, height: 812 });
 await shot('phone-dark-fa', { width: 375, height: 812, theme: 'dark', lang: 'fa' });
 await shot('desktop-empty', { url: path + '?q=zzzzzz' });
 await shot('desktop-one-currency', { url: path + '?currency=1&balance=debtors' });
-await shot('desktop-modal', { full: false, before: async p => { await p.click('[data-account-new]'); await p.waitForTimeout(500); } });
-await shot('desktop-menu', { full: false, before: async p => { await p.locator('.acc-table [data-bs-toggle="dropdown"]').first().click(); } });
-await shot('desktop-totals-hidden', { full: false, before: async p => { await p.click('#summaryToggle'); } });
-await shot('desktop-keyboard', { full: false, before: async p => { await p.click('#summaryToggle'); for (let i = 0; i < 9; i++) await p.keyboard.press('Tab'); } });
+// states that exist on some pages only: each is skipped where the page has no such control
+const optional = async (name, opts) => { try { await shot(name, opts); } catch (e) { console.log('skipped', name, '-', e.message.split('\n')[0]); } };
+await optional('desktop-modal', { full: false, before: async p => { await p.locator('[data-account-new], [data-modal-form]').first().click({ timeout: 3000 }); await p.waitForTimeout(500); } });
+await optional('desktop-menu', { full: false, before: async p => { await p.locator('.app-content table [data-bs-toggle="dropdown"]').first().click({ timeout: 3000 }); } });
+await optional('desktop-totals-hidden', { full: false, before: async p => { await p.click('#summaryToggle', { timeout: 3000 }); } });
+await shot('desktop-keyboard', { full: false, before: async p => { for (let i = 0; i < 9; i++) await p.keyboard.press('Tab'); } });
 await shot('desktop-zoom-200', { width: 720, height: 500, full: false });
 await browser.close();
