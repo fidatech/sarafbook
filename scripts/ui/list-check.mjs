@@ -30,11 +30,12 @@ console.log('whole page on a slow connection:', Date.now() - t0, 'ms');
 const rows = () => page.locator('#accResults tbody tr:not(.acc-group)').count();
 const waitList = async () => { await page.waitForFunction(() => !document.querySelector('#accResults.is-loading')); };
 const step = async (name, fn) => {
-    const before = navigations, t = Date.now();
+    await page.evaluate(() => { window.__stay = 1; });
+    const t = Date.now();
     await fn();
     await page.waitForTimeout(50);
     await waitList();
-    console.log(`${name}: ${Date.now() - t} ms, rows ${await rows()}, address ${new URL(page.url()).search || '(none)'}, whole page loaded: ${navigations > before ? 'YES' : 'no'}`);
+    console.log(`${name}: ${Date.now() - t} ms, rows ${await rows()}, address ${new URL(page.url()).search || '(none)'}, whole page loaded: ${(await page.evaluate(() => window.__stay)) === 1 ? 'no' : 'YES'}`);
 };
 
 await step('type a search', async () => { await page.fill('#accountFilters input[name=q]', 'CUS'); await page.waitForTimeout(400); });
