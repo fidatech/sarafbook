@@ -1,0 +1,43 @@
+name: Screenshots
+
+# Signs in to a Sarafi as its administrator and takes screenshots of one page, to look at a
+# design change without a computer at hand. Images are kept for one day.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant:
+        description: Short name of the Sarafi
+        default: demo
+      path:
+        description: Page to photograph
+        default: /admin/accounts
+
+permissions:
+  contents: read
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install a browser
+        run: |
+          cd scripts/ui && npm init -y >/dev/null && npm install --no-audit --no-fund playwright@1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Take the screenshots
+        working-directory: scripts/ui
+        env:
+          BASE_URL: https://${{ inputs.tenant }}.${{ vars.APP_DOMAIN || 'sarafbook.com' }}
+          PAGE_PATH: ${{ inputs.path }}
+          SARAFI_PASSWORD: ${{ secrets.SARAFI_ADMIN_PASSWORD }}
+        run: node screenshots.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: scripts/ui/shots/
+          retention-days: 1
