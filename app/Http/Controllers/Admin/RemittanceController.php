@@ -402,6 +402,11 @@ class RemittanceController extends Controller
 
     public function store(Request $request)
     {
+        // the actual side follows the partner side unless it is given
+        $request->merge([
+            'actual_currency_id' => $request->input('actual_currency_id') ?: ($request->input('partner_currency_id') ?: $request->input('currency_id')),
+            'actual_amount' => $request->input('actual_amount') ?: ($request->input('partner_amount') ?: $request->input('amount')),
+        ]);
         $request->validate([
             'date' => 'required|date',
             'type' => 'required|in:incoming,outgoing',
